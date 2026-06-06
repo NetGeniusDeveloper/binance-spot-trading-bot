@@ -1,5 +1,7 @@
 from typing import Any, Dict, List
 
+from scanner_real_channels import REAL_CHANNELS
+
 
 # Demo channels are safe local examples.
 # They do not connect to Telegram and are used for testing the scanner pipeline.
@@ -49,22 +51,6 @@ DEMO_CHANNELS: List[Dict[str, Any]] = [
 ]
 
 
-# Real public channels can be added later.
-# Keep this list empty by default to avoid accidental Telegram requests.
-#
-# Example:
-# REAL_CHANNELS = [
-#     {
-#         "username": "some_public_channel",
-#         "title": "Some Public Channel",
-#         "enabled": True,
-#         "weight": 1.0,
-#         "authority_score": 70,
-#     },
-# ]
-REAL_CHANNELS: List[Dict[str, Any]] = []
-
-
 def normalize_channel(channel: Dict[str, Any]) -> Dict[str, Any]:
     return {
         "username": str(channel.get("username", "")).strip().lstrip("@"),
@@ -95,42 +81,42 @@ def get_channel_weight(channel_username: str, channels: List[Dict[str, Any]]) ->
     return 1.0
 
 
-def print_channels_report() -> None:
-    print("SCANNER CHANNELS")
-    print("================")
-    print("Demo channels:", len(DEMO_CHANNELS))
-    print("Real channels:", len(REAL_CHANNELS))
+def print_channel_list(title: str, channels: List[Dict[str, Any]]) -> None:
     print()
+    print(title)
+    print("=" * len(title))
 
-    print("DEMO CHANNELS")
-    print("=============")
+    enabled_channels = get_enabled_channels(channels)
 
-    for channel in get_enabled_channels(DEMO_CHANNELS):
-        print(
-            channel["username"],
-            "title=" + channel["title"],
-            "weight=" + str(channel["weight"]),
-            "authority=" + str(channel["authority_score"]),
-        )
-
-    print()
-    print("REAL CHANNELS")
-    print("=============")
-
-    real_channels = get_enabled_channels(REAL_CHANNELS)
-
-    if not real_channels:
-        print("No real Telegram channels configured.")
-        print("[SAFE] Real collector will not request Telegram channels.")
+    if not enabled_channels:
+        if title == "REAL CHANNELS":
+            print("No real Telegram channels configured.")
+            print("[SAFE] Real collector will not request Telegram channels.")
+        else:
+            print("No channels configured.")
         return
 
-    for channel in real_channels:
+    for channel in enabled_channels:
         print(
             channel["username"],
             "title=" + channel["title"],
             "weight=" + str(channel["weight"]),
             "authority=" + str(channel["authority_score"]),
         )
+
+
+def print_channels_report() -> None:
+    demo_channels = get_enabled_channels(DEMO_CHANNELS)
+    real_channels = get_enabled_channels(REAL_CHANNELS)
+
+    print("SCANNER CHANNELS")
+    print("================")
+    print("Demo channels:", len(demo_channels))
+    print("Real channels:", len(real_channels))
+    print("Real config file: scanner_real_channels.py")
+
+    print_channel_list("DEMO CHANNELS", DEMO_CHANNELS)
+    print_channel_list("REAL CHANNELS", REAL_CHANNELS)
 
 
 if __name__ == "__main__":

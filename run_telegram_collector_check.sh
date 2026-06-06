@@ -20,6 +20,7 @@ echo "1. PYTHON COMPILE CHECK"
 echo "======================================"
 python -m py_compile \
   credentials.py \
+  scanner_real_channels.py \
   scanner_channels.py \
   telegram_social_collector.py \
   social_signal_engine.py
@@ -52,5 +53,6 @@ echo "[OK] Telegram collector check completed"
 echo "[OK] This script did not create orders"
 echo "[OK] This script did not run trading bot"
 echo "[OK] This script did not run Binance market scanner"
+echo "[OK] Real Telegram channels are controlled by scanner_real_channels.py"
 echo
 echo "DONE"
