@@ -1,4 +1,5 @@
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, List
 
 from signal_rating import (
@@ -6,6 +7,11 @@ from signal_rating import (
     build_signal_rating,
     export_signal_for_agent,
 )
+
+
+REPORTS_DIR = Path("reports")
+REPORT_PATH = REPORTS_DIR / "social_scanner_demo_report.md"
+
 from social_signal_engine import (
     analyze_social_signals,
     build_demo_messages,
@@ -107,6 +113,111 @@ def build_extra_demo_market_metrics() -> Dict[str, Dict[str, Any]]:
             "has_retest": False,
         },
     }
+
+
+def format_agent_export(signal: Dict[str, Any]) -> str:
+    agent_export = export_signal_for_agent(signal)
+    lines = ["```python"]
+
+    for key, value in agent_export.items():
+        lines.append(f"{key}: {value}")
+
+    lines.append("```")
+    return "\n".join(lines)
+
+
+def build_markdown_report(signals: List[Dict[str, Any]], created_at: datetime) -> str:
+    lines = [
+        "# Crypto Social Scanner Demo Report",
+        "",
+        f"Дата запуска: `{created_at.isoformat(timespec='seconds')}`",
+        "",
+        "Режим: **DEMO / ANALYTICAL ONLY**",
+        "",
+        "- Telegram API: отключён",
+        "- Реальная торговля: отключена",
+        "- Ордера: не создаются",
+        "- Назначение: аналитический social/market scanner",
+        "",
+        "## Summary",
+        "",
+        "| Pair | Status | Telegram Score | Market Score | Final Score | Risk Flags |",
+        "|---|---:|---:|---:|---:|---|",
+    ]
+
+    for signal in signals:
+        risk_flags = ", ".join(signal["risk_flags"]) or "none"
+        lines.append(
+            f"| {signal['pair']} | {signal['status']} | "
+            f"{signal['telegram_score']} | {signal['market_score']} | "
+            f"{signal['final_score']} | {risk_flags} |"
+        )
+
+    lines.extend([
+        "",
+        "## Full Signal Cards",
+        "",
+    ])
+
+    for signal in signals:
+        social = signal["social_signal"]
+        market = signal["market_metrics"]
+        risk_flags = ", ".join(signal["risk_flags"]) or "none"
+
+        lines.extend([
+            f"### {signal['pair']}",
+            "",
+            f"**Статус:** {signal['status']}",
+            "",
+            f"- Telegram Score: `{signal['telegram_score']}`",
+            f"- Market Score: `{signal['market_score']}`",
+            f"- Risk Adjustment: `{signal['risk_adjustment']}`",
+            f"- Final Score: `{signal['final_score']}`",
+            f"- Risk Flags: `{risk_flags}`",
+            "",
+            "#### Telegram",
+            "",
+            f"- mentions_15m: `{social.get('mentions_15m')}`",
+            f"- mention_growth: `{social.get('mention_growth_factor')}`",
+            f"- unique_channels: `{social.get('unique_channels')}`",
+            f"- weighted_mentions: `{social.get('weighted_mentions')}`",
+            "",
+            "#### Market",
+            "",
+            f"- price_change_15m_percent: `{market.get('price_change_15m_percent')}`",
+            f"- price_change_1h_percent: `{market.get('price_change_1h_percent')}`",
+            f"- price_change_4h_percent: `{market.get('price_change_4h_percent')}`",
+            f"- volume_24h_usdt: `{market.get('volume_24h_usdt')}`",
+            f"- volume_change_ratio: `{market.get('volume_change_ratio')}`",
+            f"- spread_percent: `{market.get('estimated_spread_percent')}`",
+            f"- distance_from_high_percent: `{market.get('distance_from_local_high_percent')}`",
+            f"- has_retest: `{market.get('has_retest')}`",
+            "",
+            "#### Agent Export",
+            "",
+            format_agent_export(signal),
+            "",
+        ])
+
+    lines.extend([
+        "## Disclaimer",
+        "",
+        "Telegram/social signal is not a trading entry.",
+        "",
+        "This scanner is analytical only. No orders are created.",
+        "",
+        "Crypto assets are high-risk. Final decision is always user's responsibility.",
+        "",
+    ])
+
+    return "\n".join(lines)
+
+
+def save_markdown_report(signals: List[Dict[str, Any]], created_at: datetime) -> Path:
+    REPORTS_DIR.mkdir(exist_ok=True)
+    report_text = build_markdown_report(signals, created_at)
+    REPORT_PATH.write_text(report_text, encoding="utf-8")
+    return REPORT_PATH
 
 
 def print_header() -> None:
@@ -225,6 +336,10 @@ def main() -> None:
         print_signal(signal)
 
     print_summary(rated_signals)
+
+    report_path = save_markdown_report(rated_signals, now)
+    print()
+    print("Markdown report saved:", report_path)
 
     print()
     print("DISCLAIMER")
