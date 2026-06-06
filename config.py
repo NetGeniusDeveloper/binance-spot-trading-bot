@@ -12,6 +12,31 @@ ACTIVE_TRADING_SYMBOLS = [
     {"symbol": "ETH", "weight": 1},
 ]
 
+# Symbols allowed for analytical Telegram/social scanner.
+# WATCHLIST is wider than ACTIVE_TRADING_SYMBOLS.
+# Telegram/social signals are NOT trading permissions.
+WATCHLIST = [
+    "BTC",
+    "ETH",
+    "SOL",
+    "TON",
+    "LINK",
+    "AVAX",
+    "NEAR",
+    "SUI",
+    "ARB",
+    "OP",
+    "APT",
+    "INJ",
+    "SEI",
+    "DOT",
+    "ATOM",
+    "XRP",
+    "ADA",
+    "FET",
+    "RNDR",
+]
+
 TRADING_INTERVAL = "4h"
 
 MIN_AI_CONFIDENCE = 0.60
