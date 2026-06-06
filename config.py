@@ -1,9 +1,21 @@
-WALLET_USAGE_PERCENT = 20.0  # must be between 0.0 and 100.0
+DRY_RUN = True
+
+WALLET_USAGE_PERCENT = 0.0  # must be between 0.0 and 100.0
+
 MAXIMUM_NUMBER_OF_API_CALL_TRIES = 5
-BINANCE_API_TIMEOUT = 30
+BINANCE_API_TIMEOUT = 60
+
 TELEGRAM_USER_ID_LIST = []
-ACTIVE_TRADING_SYMBOLS = [
-    {'symbol': 'ETH', 'weight': 1},
-    {'symbol': 'BTC', 'weight': 1},
-]
 SEND_TELEGRAM_MESSAGE = False
+
+ACTIVE_TRADING_SYMBOLS = [
+    {"symbol": "ETH", "weight": 1},
+]
+
+TRADING_INTERVAL = "4h"
+
+MIN_AI_CONFIDENCE = 0.60
+MAX_TRADE_USDT = 10.0
+MAX_DAILY_TRADES = 20
+
+ALLOW_BEARISH_REVERSAL_BUY = False
