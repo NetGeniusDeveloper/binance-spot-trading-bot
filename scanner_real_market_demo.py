@@ -6,17 +6,19 @@ from scanner_market_data import get_market_metrics_for_watchlist
 from scanner_report import print_console_report, save_markdown_report
 from scanner_storage import save_scanner_signals
 from signal_rating import build_signal_rating
-from social_signal_engine import analyze_social_signals, build_demo_messages
+from social_signal_engine import analyze_social_signals
+from telegram_social_collector import build_demo_collector_messages
 
 
 def build_demo_social_signals(now: datetime) -> List[Dict[str, Any]]:
     """
     Build demo Telegram/social signals.
 
-    This function does not use Telegram API.
+    Demo messages come from telegram_social_collector.py.
+    This function does not use real Telegram API.
     It creates analytical demo social signals only.
     """
-    demo_messages = build_demo_messages(now)
+    demo_messages = build_demo_collector_messages(now)
     social_results = analyze_social_signals(demo_messages, now=now)
     social_results.extend(build_extra_demo_social_signals())
 
@@ -46,6 +48,28 @@ def filter_market_symbols(social_signals: List[Dict[str, Any]]) -> List[str]:
     return symbols
 
 
+def build_demo_pump_market_metrics() -> Dict[str, Any]:
+    """
+    Build artificial market metrics for the dangerous-pump demo scenario.
+
+    This fake symbol is used only to test anti-pump classification.
+    It is not requested from Binance and must never be treated as a tradable pair.
+    """
+    return {
+        "symbol": "PUMP",
+        "pair": "PUMPUSDT",
+        "price_change_15m_percent": 20.0,
+        "price_change_1h_percent": 45.0,
+        "price_change_4h_percent": 80.0,
+        "volume_24h_usdt": 400_000,
+        "volume_change_ratio": 10.0,
+        "estimated_spread_percent": 0.9,
+        "distance_from_local_high_percent": 0.1,
+        "has_retest": False,
+        "demo_only": True,
+    }
+
+
 def build_real_market_rated_signals(now: datetime) -> List[Dict[str, Any]]:
     social_signals = build_demo_social_signals(now)
     market_symbols = filter_market_symbols(social_signals)
@@ -66,21 +90,7 @@ def build_real_market_rated_signals(now: datetime) -> List[Dict[str, Any]]:
         ticker = str(social_signal.get("ticker", "")).upper()
 
         if ticker == "PUMP":
-            # Keep the dangerous-pump demo scenario, but use clearly artificial market metrics.
-            # It is useful for testing anti-pump classification.
-            metrics = {
-                "symbol": "PUMP",
-                "pair": "PUMPUSDT",
-                "price_change_15m_percent": 20.0,
-                "price_change_1h_percent": 45.0,
-                "price_change_4h_percent": 80.0,
-                "volume_24h_usdt": 400_000,
-                "volume_change_ratio": 10.0,
-                "estimated_spread_percent": 0.9,
-                "distance_from_local_high_percent": 0.1,
-                "has_retest": False,
-                "demo_only": True,
-            }
+            metrics = build_demo_pump_market_metrics()
         else:
             metrics = market_metrics_by_symbol.get(ticker, {})
 
@@ -127,7 +137,8 @@ def main() -> None:
     print()
     print("NOTE")
     print("====")
-    print("This mode uses demo social signals and real Binance market metrics.")
+    print("This mode uses demo social signals from telegram_social_collector.py.")
+    print("It combines them with real Binance market metrics.")
     print("It is still analytical only and does not create orders.")
 
 
