@@ -71,6 +71,8 @@ def print_safety_block(payload: Dict[str, Any]) -> None:
     print("Created at:", payload.get("created_at"))
     print("Min final score:", payload.get("min_final_score"))
     print("Min watchlist score:", payload.get("min_watchlist_score"))
+    print("Candidate statuses:", ", ".join(payload.get("candidate_statuses", [])) or "none")
+    print("Watchlist statuses:", ", ".join(payload.get("watchlist_statuses", [])) or "none")
 
     if payload.get("order_execution_allowed") is False:
         print("[OK] Orders are disabled.")
@@ -91,6 +93,7 @@ def print_summary(payload: Dict[str, Any]) -> None:
     print("Trade candidates:", payload.get("total_candidates"))
     print("Watchlist candidates:", payload.get("total_watchlist_candidates"))
     print("Blocked signals:", payload.get("blocked_signals"))
+    print("Ignored signals:", payload.get("ignored_signals"))
 
     print_safety_block(payload)
 
@@ -104,6 +107,7 @@ def print_summary(payload: Dict[str, Any]) -> None:
     print("BLOCKED / REJECTED SUMMARY")
     print("==========================")
     print("Blocked signals:", payload.get("blocked_signals"))
+    print("Ignored signals:", payload.get("ignored_signals"))
     print("Excluded statuses:", ", ".join(payload.get("excluded_statuses", [])) or "none")
 
     print()

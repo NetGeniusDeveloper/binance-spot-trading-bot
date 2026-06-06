@@ -18,9 +18,13 @@ EXCLUDED_STATUSES = {
     "опасный памп",
 }
 
+CANDIDATE_STATUSES = {
+    "движение возможно",
+    "ждать ретест",
+}
+
 WATCHLIST_STATUSES = {
     "только наблюдать",
-    "ждать ретест",
 }
 
 
@@ -60,6 +64,22 @@ def load_raw_scanner_signals() -> List[Dict[str, Any]]:
     return signals
 
 
+def get_risk_flags(signal: Dict[str, Any]) -> List[str]:
+    risk_flags = signal.get("risk_flags", [])
+
+    if isinstance(risk_flags, list):
+        return [str(item) for item in risk_flags]
+
+    if isinstance(risk_flags, str) and risk_flags.strip():
+        return [
+            item.strip()
+            for item in risk_flags.split(",")
+            if item.strip()
+        ]
+
+    return []
+
+
 def is_blocked_signal(signal: Dict[str, Any]) -> bool:
     """
     Block signals that must not be sent to the future agent layer.
@@ -68,12 +88,15 @@ def is_blocked_signal(signal: Dict[str, Any]) -> bool:
     It only prevents dangerous or useless analytical signals from being exported.
     """
     status = str(signal.get("status", ""))
-    risk_flags = signal.get("risk_flags", [])
+    risk_flags = get_risk_flags(signal)
 
     if status in EXCLUDED_STATUSES:
         return True
 
-    if isinstance(risk_flags, list) and "pump_risk" in risk_flags:
+    if "pump_risk" in risk_flags:
+        return True
+
+    if "dangerous_fomo" in risk_flags:
         return True
 
     return False
@@ -83,13 +106,19 @@ def is_export_candidate(signal: Dict[str, Any]) -> bool:
     """
     Select stronger analytical candidates for the future agent layer.
 
-    This does not approve trades.
-    It only filters scanner signals for deeper market analysis.
+    Important:
+    - This does not approve trades.
+    - This does not allow order execution.
+    - Status 'только наблюдать' must never become a candidate.
     """
     if is_blocked_signal(signal):
         return False
 
+    status = str(signal.get("status", ""))
     final_score = float(signal.get("final_score", 0.0))
+
+    if status not in CANDIDATE_STATUSES:
+        return False
 
     if final_score < MIN_FINAL_SCORE:
         return False
@@ -103,20 +132,23 @@ def is_watchlist_candidate(signal: Dict[str, Any]) -> bool:
 
     Example:
     - strong Telegram/social signal;
-    - market not confirmed yet;
+    - market is not confirmed yet;
     - status is 'только наблюдать';
     - final score is below strict candidate threshold.
     """
     if is_blocked_signal(signal):
         return False
 
-    status = str(signal.get("status", ""))
-    final_score = float(signal.get("final_score", 0.0))
-
     if is_export_candidate(signal):
         return False
 
+    status = str(signal.get("status", ""))
+    final_score = float(signal.get("final_score", 0.0))
+
     if status in WATCHLIST_STATUSES:
+        return True
+
+    if status == "ждать ретест" and final_score < MIN_FINAL_SCORE:
         return True
 
     if final_score >= MIN_WATCHLIST_SCORE:
@@ -143,6 +175,7 @@ def build_agent_export_payload(signals: List[Dict[str, Any]]) -> Dict[str, Any]:
     candidates: List[Dict[str, Any]] = []
     watchlist_candidates: List[Dict[str, Any]] = []
     blocked_count = 0
+    ignored_count = 0
 
     for signal in signals:
         if is_export_candidate(signal):
@@ -155,6 +188,8 @@ def build_agent_export_payload(signals: List[Dict[str, Any]]) -> Dict[str, Any]:
 
         if is_blocked_signal(signal):
             blocked_count += 1
+        else:
+            ignored_count += 1
 
     candidates.sort(
         key=lambda item: float(item.get("final_score") or 0.0),
@@ -173,12 +208,14 @@ def build_agent_export_payload(signals: List[Dict[str, Any]]) -> Dict[str, Any]:
         "order_execution_allowed": False,
         "min_final_score": MIN_FINAL_SCORE,
         "min_watchlist_score": MIN_WATCHLIST_SCORE,
+        "candidate_statuses": sorted(CANDIDATE_STATUSES),
         "excluded_statuses": sorted(EXCLUDED_STATUSES),
         "watchlist_statuses": sorted(WATCHLIST_STATUSES),
         "total_signals_loaded": len(signals),
         "total_candidates": len(candidates),
         "total_watchlist_candidates": len(watchlist_candidates),
         "blocked_signals": blocked_count,
+        "ignored_signals": ignored_count,
         "candidates": candidates,
         "watchlist_candidates": watchlist_candidates,
         "disclaimer": (
@@ -232,10 +269,13 @@ def print_agent_export_summary(payload: Dict[str, Any], export_path: Path) -> No
     print("Order execution allowed:", payload["order_execution_allowed"])
     print("Min final score:", payload["min_final_score"])
     print("Min watchlist score:", payload["min_watchlist_score"])
+    print("Candidate statuses:", ", ".join(payload["candidate_statuses"]))
+    print("Watchlist statuses:", ", ".join(payload["watchlist_statuses"]))
     print("Total signals loaded:", payload["total_signals_loaded"])
     print("Total candidates:", payload["total_candidates"])
     print("Total watchlist candidates:", payload["total_watchlist_candidates"])
     print("Blocked signals:", payload["blocked_signals"])
+    print("Ignored signals:", payload["ignored_signals"])
     print()
 
     print_items("CANDIDATES", payload.get("candidates", []))
