@@ -24,3 +24,6 @@ data/
 patch_*.py
 requirements-fixed.txt
 requirements-py313.txt
+
+# Generated scanner reports
+reports/*.md
