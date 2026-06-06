@@ -30,3 +30,7 @@ reports/*.md
 
 # Generated scanner JSON exports
 reports/*.json
+
+# Telegram client session files
+*.session
+*.session-journal

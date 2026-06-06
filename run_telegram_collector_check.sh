@@ -24,6 +24,7 @@ python -m py_compile \
   scanner_channels.py \
   telegram_social_collector.py \
   telegram_real_mode_check.py \
+  telegram_connection_test.py \
   social_signal_engine.py
 
 echo "[OK] Python files compiled successfully"
@@ -48,19 +49,26 @@ python telegram_real_mode_check.py
 
 echo
 echo "======================================"
-echo "5. SOCIAL SIGNAL ENGINE DEMO CHECK"
+echo "5. TELEGRAM CONNECTION TEST"
+echo "======================================"
+python telegram_connection_test.py
+
+echo
+echo "======================================"
+echo "6. SOCIAL SIGNAL ENGINE DEMO CHECK"
 echo "======================================"
 python social_signal_engine.py
 
 echo
 echo "======================================"
-echo "6. SAFETY RESULT"
+echo "7. SAFETY RESULT"
 echo "======================================"
 echo "[OK] Telegram collector check completed"
 echo "[OK] This script did not create orders"
 echo "[OK] This script did not run trading bot"
 echo "[OK] This script did not run Binance market scanner"
-echo "[OK] This script did not connect to Telegram directly"
+echo "[OK] This script did not read Telegram channels"
+echo "[OK] This script did not read Telegram messages"
 echo "[OK] Real Telegram channels are controlled by scanner_real_channels.py"
 echo
 echo "DONE"
