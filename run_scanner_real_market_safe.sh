@@ -38,7 +38,13 @@ python scanner_agent_export.py
 
 echo
 echo "======================================"
-echo "6. GENERATED FILES"
+echo "6. SCANNER AGENT EXPORT REPORT"
+echo "======================================"
+python scanner_agent_export_report.py
+
+echo
+echo "======================================"
+echo "7. GENERATED FILES"
 echo "======================================"
 echo "Markdown report: reports/social_scanner_demo_report.md"
 echo "JSON export: reports/scanner_agent_export.json"
