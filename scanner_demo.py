@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Any, Dict, List
 
 from scanner_report import print_console_report, save_markdown_report
+from scanner_storage import save_scanner_signals
 from signal_rating import build_demo_market_metrics, build_signal_rating
 from social_signal_engine import analyze_social_signals, build_demo_messages
 
@@ -138,8 +139,13 @@ def build_demo_rated_signals(now: datetime) -> List[Dict[str, Any]]:
 def main() -> None:
     now = datetime.now()
     rated_signals = build_demo_rated_signals(now)
+
+    saved_ids = save_scanner_signals(rated_signals, created_at=now)
     report_path = save_markdown_report(rated_signals, now)
+
     print_console_report(rated_signals, report_path=report_path)
+    print()
+    print("Scanner signals saved to SQLite:", len(saved_ids))
 
 
 if __name__ == "__main__":
