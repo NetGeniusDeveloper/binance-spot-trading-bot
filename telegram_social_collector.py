@@ -1,3 +1,4 @@
+import asyncio
 import importlib.util
 from datetime import datetime, timedelta
 from typing import Any, Dict, List
@@ -55,6 +56,11 @@ DEFAULT_DEMO_CHANNELS = [
 ]
 
 
+# Real public channels can be added later.
+# Keep this list empty by default to avoid accidental Telegram requests.
+DEFAULT_REAL_CHANNELS: List[Dict[str, Any]] = []
+
+
 def is_telethon_installed() -> bool:
     return importlib.util.find_spec("telethon") is not None
 
@@ -73,7 +79,6 @@ def get_collector_status() -> Dict[str, Any]:
     """
     telethon_installed = is_telethon_installed()
     credentials_ready = has_telegram_client_credentials()
-
     ready = telethon_installed and credentials_ready
 
     reasons: List[str] = []
@@ -100,12 +105,16 @@ def get_collector_status() -> Dict[str, Any]:
     }
 
 
-def get_demo_channel_weight(channel_username: str) -> float:
-    for channel in DEFAULT_DEMO_CHANNELS:
-        if channel["username"] == channel_username:
+def get_channel_weight(channel_username: str, channels: List[Dict[str, Any]]) -> float:
+    for channel in channels:
+        if channel.get("username") == channel_username:
             return float(channel.get("weight", 1.0))
 
     return 1.0
+
+
+def get_demo_channel_weight(channel_username: str) -> float:
+    return get_channel_weight(channel_username, DEFAULT_DEMO_CHANNELS)
 
 
 def build_demo_message(
@@ -198,6 +207,122 @@ def build_demo_collector_messages(now: datetime | None = None) -> List[Dict[str,
     ]
 
 
+def normalize_real_channel(channel: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "username": str(channel.get("username", "")).strip().lstrip("@"),
+        "title": str(channel.get("title", "")),
+        "enabled": bool(channel.get("enabled", True)),
+        "weight": float(channel.get("weight", 1.0)),
+        "authority_score": int(channel.get("authority_score", 50)),
+    }
+
+
+def build_real_message(
+    channel: Dict[str, Any],
+    message: Any,
+) -> Dict[str, Any]:
+    message_date = getattr(message, "date", None)
+
+    if message_date is None:
+        created_at = datetime.now()
+    else:
+        created_at = message_date.replace(tzinfo=None)
+
+    text = getattr(message, "message", "") or ""
+    views = getattr(message, "views", 0) or 0
+    forwards = getattr(message, "forwards", 0) or 0
+
+    return {
+        "channel": channel["username"],
+        "message_id": int(getattr(message, "id", 0) or 0),
+        "created_at": created_at.isoformat(timespec="seconds"),
+        "text": str(text),
+        "views": int(views),
+        "forwards": int(forwards),
+        "channel_weight": float(channel.get("weight", 1.0)),
+        "demo": False,
+    }
+
+
+async def collect_public_channel_messages(
+    channels: List[Dict[str, Any]] | None = None,
+    limit_per_channel: int = 50,
+) -> List[Dict[str, Any]]:
+    """
+    Collect recent messages from public Telegram channels through Telethon.
+
+    Safety rules:
+    - analytical only;
+    - no orders;
+    - no private-channel bypassing;
+    - disabled channels are skipped;
+    - unavailable channels are skipped with a warning;
+    - if Telethon or credentials are missing, returns an empty list.
+    """
+    status = get_collector_status()
+
+    if not status["ready"]:
+        print("[SAFE] Telegram collector is not ready:", ", ".join(status["reasons"]) or "unknown")
+        return []
+
+    if channels is None:
+        channels = DEFAULT_REAL_CHANNELS
+
+    normalized_channels = [
+        normalize_real_channel(channel)
+        for channel in channels
+        if bool(channel.get("enabled", True))
+    ]
+
+    if not normalized_channels:
+        print("[SAFE] No real Telegram channels configured.")
+        return []
+
+    from telethon import TelegramClient
+
+    messages: List[Dict[str, Any]] = []
+
+    async with TelegramClient(
+        TELEGRAM_SESSION_NAME,
+        TELEGRAM_API_ID,
+        TELEGRAM_API_HASH,
+    ) as client:
+        for channel in normalized_channels:
+            username = channel["username"]
+
+            if not username:
+                continue
+
+            try:
+                async for message in client.iter_messages(
+                    username,
+                    limit=int(limit_per_channel),
+                ):
+                    text = getattr(message, "message", "") or ""
+
+                    if not text.strip():
+                        continue
+
+                    messages.append(build_real_message(channel, message))
+
+            except Exception as ex:
+                print("[WARN] Skip channel", username + ":", ex)
+
+    return messages
+
+
+def collect_public_channel_messages_sync(
+    channels: List[Dict[str, Any]] | None = None,
+    limit_per_channel: int = 50,
+) -> List[Dict[str, Any]]:
+    return asyncio.run(
+        collect_public_channel_messages(
+            channels=channels,
+            limit_per_channel=limit_per_channel,
+        )
+    )
+
+
 def print_collector_status(status: Dict[str, Any]) -> None:
     print("TELEGRAM SOCIAL COLLECTOR")
     print("=========================")
@@ -218,7 +343,8 @@ def print_collector_status(status: Dict[str, Any]) -> None:
     print()
 
     if status["ready"]:
-        print("[OK] Telegram collector can be connected in a future step.")
+        print("[OK] Telegram collector can be connected.")
+        print("[SAFE] It will still collect analytics only and will not create orders.")
     else:
         print("[SAFE] Telegram collector is not connected.")
         print("[SAFE] Demo mode can be used until Telegram Client API credentials are configured.")
@@ -248,6 +374,16 @@ def main() -> None:
             "-",
             message["text"],
         )
+
+    print()
+    print("REAL MODE CHECK")
+    print("===============")
+
+    if status["ready"]:
+        print("[OK] Real mode credentials are configured.")
+        print("[SAFE] Add public channels to DEFAULT_REAL_CHANNELS or a future config file.")
+    else:
+        print("[SAFE] Real mode is not active.")
 
     print()
     print("DISCLAIMER")
