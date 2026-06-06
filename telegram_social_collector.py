@@ -8,57 +8,13 @@ from credentials import (
     TELEGRAM_API_ID,
     TELEGRAM_SESSION_NAME,
 )
-
-
-DEFAULT_DEMO_CHANNELS = [
-    {
-        "username": "crypto_news_alpha",
-        "title": "Crypto News Alpha",
-        "enabled": True,
-        "weight": 1.5,
-        "authority_score": 80,
-    },
-    {
-        "username": "market_watch",
-        "title": "Market Watch",
-        "enabled": True,
-        "weight": 1.2,
-        "authority_score": 70,
-    },
-    {
-        "username": "trading_notes",
-        "title": "Trading Notes",
-        "enabled": True,
-        "weight": 1.1,
-        "authority_score": 65,
-    },
-    {
-        "username": "old_news",
-        "title": "Old News",
-        "enabled": True,
-        "weight": 1.0,
-        "authority_score": 50,
-    },
-    {
-        "username": "low_quality_pump",
-        "title": "Low Quality Pump",
-        "enabled": True,
-        "weight": 0.2,
-        "authority_score": 10,
-    },
-    {
-        "username": "altcoin_watch",
-        "title": "Altcoin Watch",
-        "enabled": True,
-        "weight": 1.0,
-        "authority_score": 55,
-    },
-]
-
-
-# Real public channels can be added later.
-# Keep this list empty by default to avoid accidental Telegram requests.
-DEFAULT_REAL_CHANNELS: List[Dict[str, Any]] = []
+from scanner_channels import (
+    DEMO_CHANNELS,
+    REAL_CHANNELS,
+    get_channel_weight,
+    get_enabled_channels,
+    normalize_channel,
+)
 
 
 def is_telethon_installed() -> bool:
@@ -101,20 +57,14 @@ def get_collector_status() -> Dict[str, Any]:
         "telegram_api_id_exists": TELEGRAM_API_ID is not None,
         "telegram_api_hash_exists": bool(TELEGRAM_API_HASH),
         "session_name": TELEGRAM_SESSION_NAME,
+        "demo_channels_count": len(get_enabled_channels(DEMO_CHANNELS)),
+        "real_channels_count": len(get_enabled_channels(REAL_CHANNELS)),
         "reasons": reasons,
     }
 
 
-def get_channel_weight(channel_username: str, channels: List[Dict[str, Any]]) -> float:
-    for channel in channels:
-        if channel.get("username") == channel_username:
-            return float(channel.get("weight", 1.0))
-
-    return 1.0
-
-
 def get_demo_channel_weight(channel_username: str) -> float:
-    return get_channel_weight(channel_username, DEFAULT_DEMO_CHANNELS)
+    return get_channel_weight(channel_username, DEMO_CHANNELS)
 
 
 def build_demo_message(
@@ -207,16 +157,6 @@ def build_demo_collector_messages(now: datetime | None = None) -> List[Dict[str,
     ]
 
 
-def normalize_real_channel(channel: Dict[str, Any]) -> Dict[str, Any]:
-    return {
-        "username": str(channel.get("username", "")).strip().lstrip("@"),
-        "title": str(channel.get("title", "")),
-        "enabled": bool(channel.get("enabled", True)),
-        "weight": float(channel.get("weight", 1.0)),
-        "authority_score": int(channel.get("authority_score", 50)),
-    }
-
-
 def build_real_message(
     channel: Dict[str, Any],
     message: Any,
@@ -240,6 +180,7 @@ def build_real_message(
         "views": int(views),
         "forwards": int(forwards),
         "channel_weight": float(channel.get("weight", 1.0)),
+        "authority_score": int(channel.get("authority_score", 50)),
         "demo": False,
     }
 
@@ -257,7 +198,8 @@ async def collect_public_channel_messages(
     - no private-channel bypassing;
     - disabled channels are skipped;
     - unavailable channels are skipped with a warning;
-    - if Telethon or credentials are missing, returns an empty list.
+    - if Telethon or credentials are missing, returns an empty list;
+    - if real channels are empty, returns an empty list.
     """
     status = get_collector_status()
 
@@ -266,10 +208,10 @@ async def collect_public_channel_messages(
         return []
 
     if channels is None:
-        channels = DEFAULT_REAL_CHANNELS
+        channels = REAL_CHANNELS
 
     normalized_channels = [
-        normalize_real_channel(channel)
+        normalize_channel(channel)
         for channel in channels
         if bool(channel.get("enabled", True))
     ]
@@ -334,6 +276,8 @@ def print_collector_status(status: Dict[str, Any]) -> None:
     print("TELEGRAM_API_ID exists:", status["telegram_api_id_exists"])
     print("TELEGRAM_API_HASH exists:", status["telegram_api_hash_exists"])
     print("Session name:", status["session_name"])
+    print("Demo channels:", status["demo_channels_count"])
+    print("Real channels:", status["real_channels_count"])
 
     if status["reasons"]:
         print("Reasons:", ", ".join(status["reasons"]))
@@ -355,10 +299,7 @@ def print_collector_status(status: Dict[str, Any]) -> None:
         print("TELEGRAM_SESSION_NAME=crypto_scanner_session")
 
 
-def main() -> None:
-    status = get_collector_status()
-    print_collector_status(status)
-
+def print_demo_messages() -> None:
     print()
     print("DEMO MESSAGES")
     print("=============")
@@ -375,16 +316,27 @@ def main() -> None:
             message["text"],
         )
 
+
+def print_real_mode_check(status: Dict[str, Any]) -> None:
     print()
     print("REAL MODE CHECK")
     print("===============")
 
-    if status["ready"]:
-        print("[OK] Real mode credentials are configured.")
-        print("[SAFE] Add public channels to DEFAULT_REAL_CHANNELS or a future config file.")
-    else:
+    if not status["ready"]:
         print("[SAFE] Real mode is not active.")
+        return
 
+    if status["real_channels_count"] <= 0:
+        print("[SAFE] Real mode credentials are configured, but no real channels are enabled.")
+        print("[SAFE] Add public channels to scanner_channels.py when ready.")
+        return
+
+    print("[OK] Real mode credentials are configured.")
+    print("[OK] Enabled real channels:", status["real_channels_count"])
+    print("[SAFE] Collector remains analytical only and will not create orders.")
+
+
+def print_disclaimer() -> None:
     print()
     print("DISCLAIMER")
     print("==========")
@@ -392,6 +344,14 @@ def main() -> None:
     print("This collector is analytical only.")
     print("No orders are created.")
     print("Only public channels should be used in real mode.")
+
+
+def main() -> None:
+    status = get_collector_status()
+    print_collector_status(status)
+    print_demo_messages()
+    print_real_mode_check(status)
+    print_disclaimer()
 
 
 if __name__ == "__main__":
