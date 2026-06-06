@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, Iterable, List
 
 from config import WATCHLIST
+from telegram_social_collector import build_demo_collector_messages
 from ticker_extractor import extract_tickers
 
 
@@ -36,6 +37,9 @@ def normalize_message(raw_message: Dict[str, Any]) -> Dict[str, Any]:
     text = str(raw_message.get("text", ""))
     channel = str(raw_message.get("channel", "unknown"))
     channel_weight = float(raw_message.get("channel_weight", 1.0))
+    message_id = raw_message.get("message_id")
+    views = raw_message.get("views")
+    forwards = raw_message.get("forwards")
 
     tickers = raw_message.get("tickers")
 
@@ -44,9 +48,12 @@ def normalize_message(raw_message: Dict[str, Any]) -> Dict[str, Any]:
 
     return {
         "channel": channel,
+        "message_id": message_id,
         "text": text,
         "created_at": created_at,
         "channel_weight": channel_weight,
+        "views": views,
+        "forwards": forwards,
         "tickers": list(tickers),
     }
 
@@ -92,6 +99,21 @@ def calculate_weighted_mentions(messages: Iterable[Dict[str, Any]]) -> float:
         total += float(message.get("channel_weight", 1.0))
 
     return round(total, 2)
+
+
+def collect_sample_texts(messages: Iterable[Dict[str, Any]], limit: int = 5) -> List[str]:
+    texts = []
+
+    for message in messages:
+        text = str(message.get("text", "")).strip()
+
+        if text:
+            texts.append(text)
+
+        if len(texts) >= limit:
+            break
+
+    return texts
 
 
 def calculate_mention_growth_factor(
@@ -168,6 +190,7 @@ def analyze_social_signals(
         unique_channels = count_unique_channels(messages_15m)
         weighted_mentions = calculate_weighted_mentions(messages_15m)
         mention_growth_factor = calculate_mention_growth_factor(messages, ticker, now)
+        sample_texts = collect_sample_texts(messages_15m)
 
         social_signal = (
             mentions_15m >= int(filters["min_mentions_15m"])
@@ -187,56 +210,19 @@ def analyze_social_signals(
             "mention_growth_factor": mention_growth_factor,
             "social_signal": social_signal,
             "status": "social_impulse" if social_signal else "watch_only",
+            "sample_texts": sample_texts,
         })
 
     return results
 
 
 def build_demo_messages(now: datetime) -> List[Dict[str, Any]]:
-    return [
-        {
-            "channel": "crypto_news_alpha",
-            "text": "$TON volume is rising after ecosystem update",
-            "created_at": now - timedelta(minutes=3),
-            "channel_weight": 1.5,
-        },
-        {
-            "channel": "market_watch",
-            "text": "TON/USDT showing strong mentions today",
-            "created_at": now - timedelta(minutes=7),
-            "channel_weight": 1.2,
-        },
-        {
-            "channel": "trading_notes",
-            "text": "#TON breakout discussion is growing",
-            "created_at": now - timedelta(minutes=12),
-            "channel_weight": 1.1,
-        },
-        {
-            "channel": "old_news",
-            "text": "Toncoin was quiet earlier",
-            "created_at": now - timedelta(minutes=45),
-            "channel_weight": 1.0,
-        },
-        {
-            "channel": "crypto_news_alpha",
-            "text": "Bitcoin and Ethereum are still under pressure",
-            "created_at": now - timedelta(minutes=10),
-            "channel_weight": 1.5,
-        },
-        {
-            "channel": "low_quality_pump",
-            "text": "urgent 100x moon guaranteed buy now",
-            "created_at": now - timedelta(minutes=5),
-            "channel_weight": 0.2,
-        },
-        {
-            "channel": "altcoin_watch",
-            "text": "LINKUSDT volume is rising slowly",
-            "created_at": now - timedelta(hours=2),
-            "channel_weight": 1.0,
-        },
-    ]
+    """
+    Compatibility wrapper for existing scanner demo pipeline.
+
+    Demo messages now come from telegram_social_collector.py.
+    """
+    return build_demo_collector_messages(now)
 
 
 def print_social_report(results: List[Dict[str, Any]]) -> None:
@@ -260,6 +246,7 @@ def print_social_report(results: List[Dict[str, Any]]) -> None:
         print("Weighted mentions:", item["weighted_mentions"])
         print("Mention growth factor:", item["mention_growth_factor"])
         print("Social signal:", item["social_signal"])
+        print("Sample texts:", item.get("sample_texts", []))
 
 
 if __name__ == "__main__":
