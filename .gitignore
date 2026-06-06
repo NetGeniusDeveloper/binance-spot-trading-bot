@@ -27,3 +27,6 @@ requirements-py313.txt
 
 # Generated scanner reports
 reports/*.md
+
+# Generated scanner JSON exports
+reports/*.json
