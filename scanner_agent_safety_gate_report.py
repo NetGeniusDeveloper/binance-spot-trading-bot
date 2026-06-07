@@ -150,6 +150,13 @@ def build_safety_gate_payload() -> Dict[str, Any]:
         or audit.get("duplicate_delivery_text_blocked")
     )
 
+    telegram_delivery_timeout_unknown = bool_value(
+        telegram.get("telegram_delivery_timeout_unknown")
+        or audit.get("telegram_delivery_timeout_unknown")
+        or audit_status == "delivery_unknown"
+        or final_status == "telegram_delivery_unknown"
+    )
+
     total_decisions = int(
         as_dict(pipeline.get("decisions")).get("total_decisions")
         or sender.get("total_decisions")
@@ -174,7 +181,7 @@ def build_safety_gate_payload() -> Dict[str, Any]:
     if not safe_pipeline:
         blockers.append("pipeline_summary_not_safe")
 
-    if not audit_safety_ok:
+    if not audit_safety_ok and not telegram_delivery_timeout_unknown:
         blockers.append("telegram_audit_not_safe")
 
     quality_safe = bool_value(quality.get("safe_to_continue", True))
@@ -185,6 +192,32 @@ def build_safety_gate_payload() -> Dict[str, Any]:
 
     if not recommendations_safe:
         warnings.append("channel_recommendations_require_review")
+
+    if duplicate_notification_blocked:
+        blockers = [
+            blocker
+            for blocker in blockers
+            if blocker != "duplicate_delivery_text_hash"
+        ]
+        warnings = [
+            warning
+            for warning in warnings
+            if warning != "send_not_attempted_because_duplicate_delivery_text"
+        ]
+
+    if telegram_delivery_timeout_unknown:
+        blockers = [
+            blocker
+            for blocker in blockers
+            if blocker not in {
+                "telegram_delivery_timeout_unknown",
+                "telegram_send_failed",
+                "send_attempted_but_message_not_sent",
+                "telegram_audit_not_safe",
+            }
+        ]
+        if "manual_telegram_chat_check_required" not in warnings:
+            warnings.append("manual_telegram_chat_check_required")
 
     failed_statuses = {
         "notification_failed",
@@ -211,6 +244,9 @@ def build_safety_gate_payload() -> Dict[str, Any]:
     elif duplicate_notification_blocked:
         gate_status = "duplicate_blocked"
         gate_note = "Duplicate analytical Telegram notification was safely blocked."
+    elif telegram_delivery_timeout_unknown:
+        gate_status = "review_required"
+        gate_note = "Telegram delivery status is unknown after timeout. Check Telegram chat manually before rerun."
     elif final_status == "notification_sent" and telegram_message_sent:
         gate_status = "safe"
         gate_note = "Analytical notification was sent safely. Orders remained disabled."
@@ -249,6 +285,7 @@ def build_safety_gate_payload() -> Dict[str, Any]:
             "total_decisions": total_decisions,
             "telegram_message_sent": telegram_message_sent,
             "duplicate_notification_blocked": duplicate_notification_blocked,
+            "telegram_delivery_timeout_unknown": telegram_delivery_timeout_unknown,
         },
         "telegram_audit": {
             "audit_status": audit_status,
@@ -256,6 +293,7 @@ def build_safety_gate_payload() -> Dict[str, Any]:
             "duplicate_delivery_text_blocked": bool_value(
                 audit.get("duplicate_delivery_text_blocked")
             ),
+            "telegram_delivery_timeout_unknown": telegram_delivery_timeout_unknown,
         },
         "channel_quality": {
             "safe_to_continue": quality_safe,
@@ -361,6 +399,7 @@ def build_text_report(payload: Dict[str, Any]) -> str:
     lines.append(f"Total decisions: {pipeline.get('total_decisions')}")
     lines.append(f"Telegram message sent: {pipeline.get('telegram_message_sent')}")
     lines.append(f"Duplicate notification blocked: {pipeline.get('duplicate_notification_blocked')}")
+    lines.append(f"Telegram delivery timeout unknown: {pipeline.get('telegram_delivery_timeout_unknown')}")
     lines.append("")
 
     lines.append("TELEGRAM AUDIT")
@@ -368,6 +407,7 @@ def build_text_report(payload: Dict[str, Any]) -> str:
     lines.append(f"Audit status: {audit.get('audit_status')}")
     lines.append(f"Audit safety OK: {audit.get('safety_ok')}")
     lines.append(f"Duplicate delivery text blocked: {audit.get('duplicate_delivery_text_blocked')}")
+    lines.append(f"Telegram delivery timeout unknown: {audit.get('telegram_delivery_timeout_unknown')}")
     lines.append("")
 
     lines.append("DANGEROUS FLAGS")

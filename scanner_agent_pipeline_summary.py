@@ -150,6 +150,15 @@ def build_summary_payload() -> Dict[str, Any]:
         and not telegram_api_used
     )
 
+    telegram_delivery_timeout_unknown = (
+        "telegram_delivery_timeout_unknown" in blockers
+        and "manual_telegram_chat_check_required" in warnings
+        and total_decisions > 0
+        and send_attempted
+        and not telegram_message_sent
+        and telegram_api_used
+    )
+
     if duplicate_notification_blocked:
         blockers = [
             blocker
@@ -161,6 +170,18 @@ def build_summary_payload() -> Dict[str, Any]:
             for warning in warnings
             if warning != "send_not_attempted_because_duplicate_delivery_text"
         ]
+
+    if telegram_delivery_timeout_unknown:
+        blockers = [
+            blocker
+            for blocker in blockers
+            if blocker not in {
+                "telegram_delivery_timeout_unknown",
+                "telegram_send_failed",
+            }
+        ]
+        if "manual_telegram_chat_check_required" not in warnings:
+            warnings.append("manual_telegram_chat_check_required")
 
     if total_signals_loaded <= 0:
         final_status = "no_signals"
@@ -177,6 +198,9 @@ def build_summary_payload() -> Dict[str, Any]:
     elif duplicate_notification_blocked:
         final_status = "duplicate_notification_blocked"
         final_note = "Duplicate analytical Telegram notification was safely blocked. Orders remained disabled."
+    elif telegram_delivery_timeout_unknown:
+        final_status = "telegram_delivery_unknown"
+        final_note = "Telegram API timed out. Delivery status is unknown; check the Telegram chat manually. Orders remained disabled."
     elif send_attempted and not telegram_message_sent:
         final_status = "notification_failed"
         final_note = "Telegram sending was attempted but failed. Check sender result."
@@ -256,6 +280,7 @@ def build_summary_payload() -> Dict[str, Any]:
             "telegram_message_sent": telegram_message_sent,
             "send_attempted": send_attempted,
             "duplicate_notification_blocked": duplicate_notification_blocked,
+            "telegram_delivery_timeout_unknown": telegram_delivery_timeout_unknown,
             "message_length": sender_data.get("message_length"),
             "message_within_telegram_limit": sender_data.get("message_within_telegram_limit"),
         },
@@ -331,6 +356,7 @@ def build_text_summary(payload: Dict[str, Any]) -> str:
     lines.append(f"Telegram message sent: {telegram.get('telegram_message_sent')}")
     lines.append(f"Send attempted: {telegram.get('send_attempted')}")
     lines.append(f"Duplicate notification blocked: {telegram.get('duplicate_notification_blocked')}")
+    lines.append(f"Telegram delivery timeout unknown: {telegram.get('telegram_delivery_timeout_unknown')}")
     lines.append(f"Message length: {telegram.get('message_length')}")
     lines.append(f"Message within Telegram limit: {telegram.get('message_within_telegram_limit')}")
     lines.append("")
@@ -421,6 +447,7 @@ def print_summary(payload: Dict[str, Any], json_path: Path, txt_path: Path) -> N
     print("Would send if enabled:", telegram.get("would_send_if_enabled"))
     print("Telegram message sent:", telegram.get("telegram_message_sent"))
     print("Duplicate notification blocked:", telegram.get("duplicate_notification_blocked"))
+    print("Telegram delivery timeout unknown:", telegram.get("telegram_delivery_timeout_unknown"))
 
     if payload.get("blockers"):
         print("Blockers:", ", ".join(str(item) for item in payload["blockers"]))

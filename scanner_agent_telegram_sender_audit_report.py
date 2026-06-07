@@ -157,7 +157,15 @@ def build_audit_payload() -> Dict[str, Any]:
     if telegram_message_sent and not telegram_api_used:
         warnings.append("telegram_message_sent_but_api_usage_not_reported")
 
-    if send_attempted and not telegram_message_sent:
+    telegram_delivery_timeout_unknown = (
+        "telegram_delivery_timeout_unknown" in blockers
+        and "manual_telegram_chat_check_required" in warnings
+        and send_attempted
+        and not telegram_message_sent
+        and telegram_api_used
+    )
+
+    if send_attempted and not telegram_message_sent and not telegram_delivery_timeout_unknown:
         blockers.append("send_attempted_but_message_not_sent")
 
     if not message_within_limit:
@@ -202,6 +210,19 @@ def build_audit_payload() -> Dict[str, Any]:
             if warning != "send_not_attempted_because_duplicate_delivery_text"
         ]
 
+    if telegram_delivery_timeout_unknown:
+        blockers = [
+            blocker
+            for blocker in blockers
+            if blocker not in {
+                "telegram_delivery_timeout_unknown",
+                "send_attempted_but_message_not_sent",
+                "telegram_send_failed",
+            }
+        ]
+        if "manual_telegram_chat_check_required" not in warnings:
+            warnings.append("manual_telegram_chat_check_required")
+
     safety_ok = (
         bool_value(sender_data.get("analytical_only", True))
         and not bool_value(sender_data.get("orders_enabled"))
@@ -215,6 +236,8 @@ def build_audit_payload() -> Dict[str, Any]:
 
     if duplicate_delivery_text_blocked:
         audit_status = "duplicate_blocked"
+    elif telegram_delivery_timeout_unknown:
+        audit_status = "delivery_unknown"
     elif telegram_message_sent:
         audit_status = "sent_verified" if safety_ok else "sent_with_audit_warnings"
     elif send_attempted:
@@ -230,6 +253,7 @@ def build_audit_payload() -> Dict[str, Any]:
         "audit_status": audit_status,
         "safety_ok": safety_ok,
         "duplicate_delivery_text_blocked": duplicate_delivery_text_blocked,
+        "telegram_delivery_timeout_unknown": telegram_delivery_timeout_unknown,
         "analytical_only": True,
         "orders_enabled": False,
         "trading_enabled": False,
@@ -261,6 +285,7 @@ def build_audit_payload() -> Dict[str, Any]:
             "telegram_message_sent": telegram_message_sent,
             "send_attempted": send_attempted,
             "duplicate_delivery_text_blocked": duplicate_delivery_text_blocked,
+            "telegram_delivery_timeout_unknown": telegram_delivery_timeout_unknown,
             "message_id": message_id,
             "chat_id_masked": send_result.get("chat_id_masked") or sender_data.get("telegram_alert_chat_id_masked"),
             "message_length": message_length,
@@ -322,6 +347,7 @@ def build_text_report(payload: Dict[str, Any]) -> str:
     lines.append(f"Telegram message sent: {telegram.get('telegram_message_sent')}")
     lines.append(f"Send attempted: {telegram.get('send_attempted')}")
     lines.append(f"Duplicate delivery text blocked: {telegram.get('duplicate_delivery_text_blocked')}")
+    lines.append(f"Telegram delivery timeout unknown: {telegram.get('telegram_delivery_timeout_unknown')}")
     lines.append(f"Message ID: {telegram.get('message_id')}")
     lines.append(f"Chat ID masked: {telegram.get('chat_id_masked')}")
     lines.append(f"Message length: {telegram.get('message_length')}")
@@ -399,6 +425,7 @@ def print_audit_summary(payload: Dict[str, Any], json_path: Path, txt_path: Path
     print("Telegram message sent:", telegram.get("telegram_message_sent"))
     print("Telegram API used:", telegram.get("telegram_api_used"))
     print("Duplicate delivery text blocked:", telegram.get("duplicate_delivery_text_blocked"))
+    print("Telegram delivery timeout unknown:", telegram.get("telegram_delivery_timeout_unknown"))
     print("Message ID:", telegram.get("message_id"))
     print("Message length:", telegram.get("message_length"))
     print("Message within Telegram limit:", telegram.get("message_within_telegram_limit"))
