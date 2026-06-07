@@ -160,7 +160,9 @@ echo "Agent decision JSON: reports/scanner_agent_decision.json"
 echo "Agent notification report TXT: reports/scanner_agent_notification_report.txt"
 echo "Telegram message preview TXT: reports/scanner_agent_telegram_message_preview.txt"
 echo "Telegram sender dry-run JSON: reports/scanner_agent_telegram_sender_dry_run.json"
-echo "Telegram sender result JSON: reports/scanner_agent_telegram_sender_result.json"\necho "Pipeline summary JSON: reports/scanner_agent_pipeline_summary.json"\necho "Pipeline summary TXT: reports/scanner_agent_pipeline_summary.txt"
+echo "Telegram sender result JSON: reports/scanner_agent_telegram_sender_result.json"
+echo "Pipeline summary JSON: reports/scanner_agent_pipeline_summary.json"
+echo "Pipeline summary TXT: reports/scanner_agent_pipeline_summary.txt"
 echo "SQLite DB: data/social_scanner.db"
 
 echo
