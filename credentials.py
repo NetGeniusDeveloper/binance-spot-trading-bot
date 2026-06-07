@@ -18,6 +18,25 @@ def get_int_env(name: str):
         return None
 
 
+def get_bool_env(name: str, default: bool = False) -> bool:
+    value = getenv(name)
+
+    if value is None:
+        return default
+
+    normalized = str(value).strip().lower()
+
+    return normalized in {
+        "1",
+        "true",
+        "yes",
+        "y",
+        "on",
+        "enable",
+        "enabled",
+    }
+
+
 BINANCE_API_KEY = getenv("BINANCE_API_KEY")
 BINANCE_SECRET_KEY = getenv("BINANCE_SECRET_KEY")
 
@@ -30,5 +49,12 @@ TELEGRAM_API_ID = get_int_env("TELEGRAM_API_ID")
 TELEGRAM_API_HASH = getenv("TELEGRAM_API_HASH")
 TELEGRAM_SESSION_NAME = getenv("TELEGRAM_SESSION_NAME", "crypto_scanner_session")
 
-# Optional future alert chat id.
+# Optional scanner alert chat id for analytical notifications.
 TELEGRAM_ALERT_CHAT_ID = getenv("TELEGRAM_ALERT_CHAT_ID")
+
+# Safety flag for scanner agent Telegram sender.
+# Default is False. Real Telegram sending is disabled unless this is explicitly true.
+SCANNER_TELEGRAM_SEND_ENABLED = get_bool_env(
+    "SCANNER_TELEGRAM_SEND_ENABLED",
+    default=False,
+)
