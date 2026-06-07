@@ -27,13 +27,13 @@ It must not:
 Current stable tag:
 
 ```text
-scanner-safe-english-docs-v1
+scanner-safe-docs-map-v3
 ```
 
 Stable commit:
 
 ```text
-34d2018
+229d63b
 ```
 
 Branch:
@@ -182,6 +182,12 @@ It means:
 ## Recommended next development step
 
 Continue development only from a clean Git state.
+
+Current recommended stable base:
+
+```text
+scanner-safe-docs-map-v3
+```
 
 Before changing code or documentation:
 
