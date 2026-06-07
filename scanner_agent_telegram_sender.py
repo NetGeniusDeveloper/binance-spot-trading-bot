@@ -14,6 +14,7 @@ from credentials import (
 INPUT_PATH = Path("reports") / "scanner_agent_telegram_message_preview.txt"
 DECISION_PATH = Path("reports") / "scanner_agent_decision.json"
 OUTPUT_PATH = Path("reports") / "scanner_agent_telegram_sender_result.json"
+DELIVERY_TEXT_PATH = Path("reports") / "scanner_agent_telegram_delivery_text.txt"
 
 MAX_TELEGRAM_MESSAGE_LENGTH = 4096
 
@@ -213,6 +214,7 @@ def build_base_payload(
         "input_file": str(INPUT_PATH),
         "decision_file": str(DECISION_PATH),
         "output_file": str(OUTPUT_PATH),
+        "delivery_text_file": str(DELIVERY_TEXT_PATH),
         "safe_to_continue": safe_to_continue,
         "telegram_token_configured": validation["telegram_token_configured"],
         "telegram_chat_configured": validation["telegram_chat_configured"],
@@ -267,6 +269,13 @@ def build_delivery_message_text(text: str) -> str:
     )
 
     return delivery_text
+
+
+def save_delivery_text(text: str, path: Path = DELIVERY_TEXT_PATH) -> Path:
+    path.parent.mkdir(exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+    return path
+
 
 def send_telegram_message(text: str) -> Dict[str, Any]:
     try:
@@ -333,6 +342,8 @@ def build_sender_payload() -> Dict[str, Any]:
         return payload
 
     text = build_delivery_message_text(str(message_result.get("text", "")))
+    delivery_text_path = save_delivery_text(text)
+    payload["delivery_text_file"] = str(delivery_text_path)
 
     payload["message_length"] = len(text)
     payload["message_within_telegram_limit"] = len(text) <= MAX_TELEGRAM_MESSAGE_LENGTH
@@ -392,6 +403,7 @@ def print_sender_summary(payload: Dict[str, Any], output_path: Path) -> None:
     print("Input file:", payload["input_file"])
     print("Decision file:", payload["decision_file"])
     print("Output file:", output_path)
+    print("Delivery text file:", payload.get("delivery_text_file"))
     print()
 
     print("SUMMARY")
