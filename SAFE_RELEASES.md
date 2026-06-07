@@ -1,79 +1,82 @@
 # SAFE_RELEASES.md
 
-# Стабильные релизы безопасного crypto scanner pipeline
+# Safe Scanner Stable Releases
 
-Этот документ фиксирует стабильные точки проекта `binance-spot-trading-bot`.
+This document records stable points of the `binance-spot-trading-bot` project.
 
-Назначение файла:
+Purpose:
 
-- быстро понять, какой тег за что отвечает;
-- знать, к какой версии можно откатиться;
-- иметь короткие команды проверки после обновлений;
-- не смешивать безопасный аналитический scanner pipeline с торговым ботом;
-- сохранить историю стабильных этапов: Telegram, cron, blocked risk, документация, safety gate.
+- quickly understand which tag represents which stable state;
+- know which version can be used for rollback;
+- keep short validation commands after updates;
+- keep the safe analytical scanner pipeline separate from any trading bot behavior;
+- preserve the history of stable stages: Telegram, cron, blocked risk, documentation, safety gate, release map, and English documentation.
 
-Проект работает в безопасном аналитическом режиме:
+The project works in safe analytical mode:
 
-- ордера Binance не создаются;
-- торговый бот не запускается;
-- автоматическая торговля не включается;
-- Telegram-уведомления разрешены только через ручные safety-флаги;
-- safety gate читает локальные отчёты и не выполняет опасных действий;
-- blocked risk report показывает только причины блокировки сигналов.
+- Binance orders are not created;
+- the trading bot is not started;
+- automated trading is not enabled;
+- Telegram notifications require explicit safety flags;
+- the safety gate reads local reports and performs no dangerous actions;
+- the blocked risk report explains why signals are blocked;
+- documentation is now available in English for international users.
 
 ---
 
-## 1. Актуальная стабильная точка
+## 1. Current Stable Baseline
 
-Актуальная стабильная версия на момент создания этого файла:
+Current stable baseline before installing this English documentation pack:
 
 ```text
-tag: scanner-safe-release-notes-linked-v1
-commit: 4fda850
+tag: scanner-safe-release-map-v1
+commit: 9890b2c
 branch: main
 ```
 
-Описание:
+Description:
 
 ```text
-Стабильная сборка с SAFE_RELEASES.md, ссылкой на карту стабильных релизов в README.md и исправленным safety gate decision count.
+Stable release map updated after SAFE_RELEASES.md and README release link work.
 ```
 
-Почему это важно:
-
-Ранее safety gate мог брать `total_decisions` из старого Telegram sender result, если свежий pipeline завершался статусом `no_decisions`. После исправления приоритет источника стал безопаснее: сначала актуальный pipeline/decision report, затем старые вспомогательные отчёты.
-
-Ожидаемый безопасный результат при отсутствии решений:
+Recommended new tag after installing, committing, and validating this English documentation pack:
 
 ```text
-Final status: no_decisions
+tag: scanner-safe-english-docs-v1
+```
+
+Expected safe result after validation:
+
+```text
 Safety gate OK: True
 Review required: False
-Telegram message sent: False
-Total decisions: 0
+Orders enabled: False
+Trading enabled: False
+Binance orders created: False
 ```
 
 ---
 
-## 2. Список стабильных тегов
+## 2. Stable Tags
 
 ### scanner-safe-telegram-v1
 
-Назначение:
+Purpose:
 
 ```text
-Стабильный безопасный Telegram pipeline с audit и safety gate.
+Stable safe Telegram pipeline with audit and safety gate.
 ```
 
-Что проверяет:
+This stage verifies:
 
-- Telegram sender работает только при safety-флагах;
-- сообщения не дублируются без проверки;
-- Telegram audit фиксирует результат отправки;
-- pipeline не создаёт ордера;
-- pipeline не запускает торгового бота.
+- Telegram sender works only through safety flags;
+- duplicate notifications are checked;
+- Telegram audit records delivery status;
+- the pipeline does not create orders;
+- the pipeline does not start the trading bot.
 
-Ключевые файлы:
+Key files:
 
 ```text
 scanner_agent_telegram_sender.py
@@ -88,21 +91,21 @@ run_scanner_agent_telegram_sender_safe.sh
 
 ### scanner-safe-cron-v1
 
-Назначение:
+Purpose:
 
 ```text
-Стабильная безопасная cron-сборка scanner pipeline.
+Stable safe cron scanner pipeline.
 ```
 
-Что добавлено:
+Added:
 
-- безопасный cron-wrapper;
-- cron-лог;
-- проверка safety gate после запуска;
-- документация по cron;
-- `.gitignore` для секретов и runtime-файлов.
+- safe cron wrapper;
+- cron log;
+- safety gate check after run;
+- cron documentation;
+- `.gitignore` for secrets and runtime files.
 
-Ключевые файлы:
+Key files:
 
 ```text
 run_daily_scanner_agent_cron_safe.sh
@@ -112,7 +115,7 @@ README.md
 .gitignore
 ```
 
-Проверка:
+Validation:
 
 ```bash
 cd /root/binance-spot-trading-bot
@@ -125,7 +128,7 @@ tail -n 200 reports/daily_scanner_agent_cron_safe.log
 cat reports/scanner_agent_safety_gate_report.txt
 ```
 
-Ожидаемый результат:
+Expected safe result:
 
 ```text
 Gate status: safe
@@ -139,21 +142,21 @@ Trading bot was not started
 
 ### scanner-safe-risk-reports-v1
 
-Назначение:
+Purpose:
 
 ```text
-Стабильная сборка pipeline с blocked risk report.
+Stable pipeline with blocked risk reports.
 ```
 
-Что добавлено:
+Added:
 
-- отдельный отчёт по заблокированным риск-фильтром сигналам;
-- интеграция blocked risk report в daily runner;
-- интеграция blocked risk report в full pipeline;
-- человекочитаемые причины блокировки;
-- пояснение для менеджера/пользователя.
+- separate report for signals blocked by risk filters;
+- blocked risk report integration into daily runner;
+- blocked risk report integration into full pipeline;
+- human-readable blocking reasons;
+- manager/user explanations.
 
-Ключевые файлы:
+Key files:
 
 ```text
 scanner_agent_blocked_risk_report.py
@@ -165,7 +168,7 @@ run_daily_scanner_agent_safe.sh
 run_full_scanner_agent_notification_pipeline_safe.sh
 ```
 
-Проверка:
+Validation:
 
 ```bash
 cd /root/binance-spot-trading-bot
@@ -178,7 +181,7 @@ cat reports/scanner_agent_blocked_risk_report.txt
 cat reports/scanner_agent_blocked_risk_report.json
 ```
 
-Ожидаемый безопасный результат:
+Expected safe result:
 
 ```text
 Safe to continue: True
@@ -188,7 +191,7 @@ Binance orders created: False
 Telegram sending: False
 ```
 
-Если есть заблокированные сигналы, это не ошибка. Это безопасное состояние:
+If blocked signals exist, this is not an error. It is a safe state:
 
 ```text
 Blocked risk means: do not use this signal for entry.
@@ -200,62 +203,60 @@ No orders are created.
 
 ### scanner-safe-risk-docs-v1
 
-Назначение:
+Purpose:
 
 ```text
-Стабильная документация с описанием cron, safety gate и blocked risk reports.
+Stable documentation describing cron, safety gate, and blocked risk reports.
 ```
 
-Что добавлено:
+Added:
 
-- обновлённый README.md;
-- обновлённый CRON_SETUP.md;
-- команды проверки;
-- описание stable tags;
-- объяснение blocked risk report;
-- команды установки cron;
-- команды безопасной ручной проверки.
+- updated README;
+- updated CRON_SETUP;
+- validation commands;
+- stable tag descriptions;
+- blocked risk report explanation;
+- cron setup commands;
+- safe manual validation commands.
 
-Ключевые файлы:
+Key files:
 
 ```text
 README.md
 CRON_SETUP.md
 ```
 
-Проверка документации:
+Documentation check:
 
 ```bash
 cd /root/binance-spot-trading-bot
 
 grep -n "scanner_agent_blocked_risk_report\|blocked risk\|Safety gate\|cron" README.md CRON_SETUP.md
-grep -n 'blocked risk\\scanner_agent_blocked_risk_report' README.md CRON_SETUP.md || echo "[OK] битый grep-шаблон не найден"
-grep -n "run_daily_scanner_agentcron\|Можно включать cro[^n]" README.md CRON_SETUP.md || echo "[OK] явные опечатки не найдены"
 ```
 
 ---
 
 ### scanner-safe-gate-count-fix-v1
 
-Назначение:
+Purpose:
 
 ```text
-Стабильная сборка с исправленным счётчиком total_decisions в safety gate.
+Stable build with corrected total_decisions source priority in the safety gate.
 ```
 
-Что исправлено:
+Fixed:
 
-- safety gate теперь корректно показывает `Total decisions: 0`, если актуальный pipeline завершился статусом `no_decisions`;
-- старый `scanner_agent_telegram_sender_result.json` больше не должен сбивать итоговый счётчик в safety gate;
-- cron-wrapper корректно проходит при безопасном статусе `no_decisions`.
+- safety gate now correctly shows `Total decisions: 0` when the current pipeline ends with `no_decisions`;
+- old `scanner_agent_telegram_sender_result.json` no longer overrides the current safety gate decision count;
+- cron wrapper passes correctly when the final state is safe `no_decisions`.
 
-Ключевой файл:
+Key file:
 
 ```text
 scanner_agent_safety_gate_report.py
 ```
 
-Проверка:
+Validation:
 
 ```bash
 cd /root/binance-spot-trading-bot
@@ -268,7 +269,7 @@ cat reports/scanner_agent_safety_gate_report.txt
 cat reports/scanner_agent_safety_gate_report.json
 ```
 
-Ожидаемый результат при no_decisions:
+Expected result for `no_decisions`:
 
 ```text
 Gate status: safe
@@ -281,52 +282,122 @@ Telegram message sent: False
 
 ---
 
-### scanner-safe-release-notes-linked-v1
+### scanner-safe-release-notes-v1
 
-Назначение:
+Purpose:
 
 ```text
-Финальная стабильная сборка с SAFE_RELEASES.md и ссылкой на карту стабильных релизов из README.md.
+Stable build adding SAFE_RELEASES.md.
 ```
 
-Что добавлено:
+Added:
 
-- файл `SAFE_RELEASES.md`;
-- ссылка на карту стабильных релизов в `README.md`;
-- актуальный stable tag обновлён до `scanner-safe-release-notes-linked-v1`;
-- GitHub синхронизирован;
-- рабочее дерево после проверки чистое.
+- release map file;
+- stable tag explanations;
+- rollback instructions;
+- safety validation commands.
 
-Ключевые файлы:
+Key file:
+
+```text
+SAFE_RELEASES.md
+```
+
+---
+
+### scanner-safe-release-notes-linked-v1
+
+Purpose:
+
+```text
+Stable build linking SAFE_RELEASES.md from README.md.
+```
+
+Added:
+
+- README link to `SAFE_RELEASES.md`;
+- updated README stable release section;
+- stable release map made easier to discover.
+
+Key files:
 
 ```text
 README.md
 SAFE_RELEASES.md
 ```
 
-Проверка:
+---
+
+### scanner-safe-release-map-v1
+
+Purpose:
+
+```text
+Stable build with release map updated to the current stable release state.
+```
+
+Added/updated:
+
+- `SAFE_RELEASES.md` current stable section updated;
+- release map now reflects the README link stage;
+- stable history is consolidated before English documentation work.
+
+Key file:
+
+```text
+SAFE_RELEASES.md
+```
+
+Validation:
 
 ```bash
 cd /root/binance-spot-trading-bot
-grep -n "SAFE_RELEASES\|scanner-safe-release-notes-linked-v1" README.md SAFE_RELEASES.md
+
+grep -n "scanner-safe-release-map-v1\|9890b2c\|SAFE_RELEASES" SAFE_RELEASES.md README.md
 git status
 git tag --list
 git log --oneline -5
 ```
 
-Ожидаемый результат:
+---
+
+### scanner-safe-english-docs-v1
+
+Purpose:
 
 ```text
-nothing to commit, working tree clean
-scanner-safe-release-notes-linked-v1
-4fda850
+Recommended stable tag after replacing Russian documentation with English international documentation.
+```
+
+Expected additions:
+
+- English `README.md`;
+- English `CRON_SETUP.md`;
+- English `SAFE_RELEASES.md`;
+- international safety explanations;
+- installation instructions for Android Download path;
+- release map kept in English.
+
+Key files:
+
+```text
+README.md
+CRON_SETUP.md
+SAFE_RELEASES.md
+```
+
+Suggested creation after successful validation:
+
+```bash
+git tag -a scanner-safe-english-docs-v1 -m "Stable safe scanner English documentation"
+git push origin scanner-safe-english-docs-v1
 ```
 
 ---
 
-## 3. Полная ручная проверка актуальной стабильной сборки
+## 3. Full Manual Validation Of Current Stable Build
 
-Перед любыми новыми изменениями выполните:
+Before any new change, run:
 
 ```bash
 cd /root/binance-spot-trading-bot
@@ -337,7 +408,7 @@ git log --oneline -5
 git tag --list
 ```
 
-Ожидаемо:
+Expected:
 
 ```text
 On branch main
@@ -345,7 +416,7 @@ Your branch is up to date with 'origin/main'.
 nothing to commit, working tree clean
 ```
 
-Проверка Python-файлов:
+Compile Python files:
 
 ```bash
 python -m py_compile \
@@ -359,7 +430,7 @@ python -m py_compile \
   scanner_agent_pipeline_summary.py
 ```
 
-Проверка bash runner-ов:
+Check bash runners:
 
 ```bash
 bash -n run_daily_scanner_agent_safe.sh
@@ -368,7 +439,7 @@ bash -n run_full_scanner_agent_notification_pipeline_safe.sh
 bash -n run_scanner_agent_telegram_sender_safe.sh
 ```
 
-Полный безопасный daily запуск:
+Run full safe daily pipeline:
 
 ```bash
 ./run_daily_scanner_agent_safe.sh
@@ -378,7 +449,7 @@ cat reports/scanner_agent_safety_gate_report.txt
 cat reports/scanner_agent_blocked_risk_report.txt
 ```
 
-Cron-wrapper вручную:
+Run cron wrapper manually:
 
 ```bash
 ./run_daily_scanner_agent_cron_safe.sh
@@ -390,9 +461,9 @@ cat reports/scanner_agent_blocked_risk_report.txt
 
 ---
 
-## 4. Критерии безопасного состояния
+## 4. Safe State Criteria
 
-Сборка считается безопасной, если:
+A build is safe if:
 
 ```text
 Safety gate OK: True
@@ -403,7 +474,7 @@ Binance API used: False
 Binance orders created: False
 ```
 
-Допустимые безопасные статусы:
+Safe statuses:
 
 ```text
 safe
@@ -413,14 +484,14 @@ no_signals
 all_signals_blocked
 ```
 
-Статусы, требующие внимания:
+Statuses requiring attention:
 
 ```text
 review_required
 telegram_delivery_unknown
 ```
 
-Статусы, при которых нельзя продолжать без проверки:
+Statuses that must not be ignored:
 
 ```text
 blocked
@@ -432,23 +503,23 @@ unknown
 
 ---
 
-## 5. Важное правило по Telegram
+## 5. Telegram Rule
 
-Telegram-отправка разрешена только при двух флагах:
+Telegram sending is allowed only when both flags are enabled:
 
 ```bash
 SCANNER_TELEGRAM_SEND_ENABLED=true
 SCANNER_TELEGRAM_MANUAL_CONFIRM=true
 ```
 
-Для cron без присмотра рекомендуемый безопасный режим:
+Recommended unattended cron mode:
 
 ```bash
 SCANNER_TELEGRAM_SEND_ENABLED=false
 SCANNER_TELEGRAM_MANUAL_CONFIRM=false
 ```
 
-Если `total_decisions=0`, Telegram sender должен быть пропущен:
+If `total_decisions=0`, Telegram sender must be skipped:
 
 ```text
 Telegram sender safe run skipped to avoid empty notification.
@@ -456,79 +527,77 @@ Telegram sender safe run skipped to avoid empty notification.
 
 ---
 
-## 6. Важное правило по blocked risk
+## 6. Blocked Risk Rule
 
-`blocked_risk` — это не торговый сигнал.
+`blocked_risk` is not a trading signal.
 
-Это означает:
+It means:
 
-- вход запрещён;
-- сигнал не использовать для сделки;
-- сигнал можно сохранить только как аналитическую запись;
-- нужен ручной анализ;
-- автоордера запрещены.
+- entry is forbidden;
+- the signal must not be used for a trade;
+- the signal may be saved only as an analytical record;
+- manual review may be performed;
+- automatic orders are forbidden.
 
-Пример безопасного blocked risk результата:
+Safe example:
 
 ```text
 Decision: blocked_risk
-Action: не использовать, заблокировано риском
-Recommended next step: Не входить.
+Action: do not use, blocked by risk filter
+Recommended next step: Do not enter.
 ```
 
 ---
 
-## 7. Быстрый откат к стабильной версии
+## 7. Quick Rollback To A Stable Version
 
-Посмотреть теги:
+List tags:
 
 ```bash
 cd /root/binance-spot-trading-bot
 git tag --list
 ```
 
-Откатиться для проверки к конкретному тегу без изменения ветки:
+Check a stable tag without changing main permanently:
 
 ```bash
-git checkout scanner-safe-gate-count-fix-v1
+git checkout scanner-safe-release-map-v1
 ```
 
-Вернуться обратно на main:
+Return to main:
 
 ```bash
 git checkout main
 git pull origin main
 ```
 
-Если нужно создать новую ветку от стабильного тега:
+Create a test branch from a stable tag:
 
 ```bash
-git checkout -b test-from-safe-gate-count scanner-safe-gate-count-fix-v1
+git checkout -b test-from-safe-release-map scanner-safe-release-map-v1
 ```
 
 ---
 
-## 8. Git workflow после изменения release notes
-
-После установки или изменения этого файла:
+## 8. Git Workflow After Editing Release Notes
 
 ```bash
 cd /root/binance-spot-trading-bot
 
 git status
 git add SAFE_RELEASES.md
-git commit -m "Add safe scanner release notes"
+git commit -m "Update safe scanner release notes"
 git push origin main
 
 git status
 git log --oneline -5
 ```
 
-Если нужно создать новый стабильный тег после проверки:
+Create a new stable tag after validation:
 
 ```bash
-git tag -a scanner-safe-release-notes-v1 -m "Stable safe scanner release notes"
-git push origin scanner-safe-release-notes-v1
+git tag -a scanner-safe-english-docs-v1 -m "Stable safe scanner English documentation"
+git push origin scanner-safe-english-docs-v1
 
 git tag --list
 git log --oneline -5
@@ -536,9 +605,7 @@ git log --oneline -5
 
 ---
 
-## 9. Установка этого файла из Download
-
-Если файл скачан в папку Android Download, установить его можно так:
+## 9. Install This File From Android Download
 
 ```bash
 cd /root/binance-spot-trading-bot
@@ -549,37 +616,47 @@ git status
 cat SAFE_RELEASES.md
 ```
 
-После проверки:
+After review:
 
 ```bash
 git add SAFE_RELEASES.md
-git commit -m "Add safe scanner release notes"
+git commit -m "Update safe scanner release notes"
 git push origin main
 ```
 
 ---
 
-## 10. Текущая рекомендуемая база для дальнейшей разработки
+## 10. Recommended Development Baseline
 
-Продолжать разработку лучше от:
+Continue development from:
 
 ```text
-scanner-safe-release-notes-linked-v1
+scanner-safe-release-map-v1
 ```
 
-Причина:
-
-- уже есть безопасный cron;
-- есть документация;
-- есть blocked risk report;
-- исправлен safety gate decision count;
-- добавлена карта стабильных релизов `SAFE_RELEASES.md`;
-- README.md содержит ссылку на карту стабильных релизов;
-- GitHub синхронизирован;
-- рабочее дерево было чистым после последней проверки.
-
-Следующий разумный этап после этого файла:
+After English documentation is committed and validated, continue from:
 
 ```text
-Продолжать разработку от scanner-safe-release-notes-linked-v1 и перед каждым изменением проверять git status, safety gate и cron-wrapper.
+scanner-safe-english-docs-v1
+```
+
+Reason:
+
+- safe cron exists;
+- safety documentation exists;
+- blocked risk report exists;
+- safety gate decision count is fixed;
+- release map exists;
+- English international documentation is available;
+- GitHub is synchronized;
+- working tree should be clean after final validation.
+
+---
+
+## 11. Next Reasonable Step
+
+After installing this English documentation pack:
+
+```text
+Run full validation, commit README.md CRON_SETUP.md SAFE_RELEASES.md, push to GitHub, then create scanner-safe-english-docs-v1.
 ```
