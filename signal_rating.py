@@ -78,6 +78,12 @@ def calculate_telegram_score(social_signal: Dict[str, Any]) -> float:
     if social_signal_enabled:
         score += 15.0
 
+    classification_summary = social_signal.get("message_classification_summary", {})
+
+    if isinstance(classification_summary, dict):
+        message_adjustment = float(classification_summary.get("score_adjustment", 0.0))
+        score += max(-40.0, min(25.0, message_adjustment))
+
     return clamp_score(score)
 
 
@@ -173,6 +179,24 @@ def analyze_rating_risks(
     danger_keyword_count = count_keywords(joined_text, DANGER_KEYWORDS)
     positive_keyword_count = count_keywords(joined_text, POSITIVE_KEYWORDS)
 
+    classification_summary = social_signal.get("message_classification_summary", {})
+    message_flags: List[str] = []
+
+    if isinstance(classification_summary, dict):
+        message_flags = [
+            str(item)
+            for item in classification_summary.get("flags", [])
+        ]
+
+        if classification_summary.get("primary_intent") == "possible_news":
+            positive_keyword_count += 1
+
+        if classification_summary.get("primary_intent") == "watch_signal":
+            positive_keyword_count += 1
+
+        if classification_summary.get("primary_intent") == "pump_fomo":
+            danger_keyword_count += 2
+
     pump_risk = (
         price_change_1h > 15.0
         or price_change_4h > 35.0
@@ -188,7 +212,10 @@ def analyze_rating_risks(
     low_liquidity = volume_24h < 5_000_000
     wide_spread = spread > 0.15
     needs_retest = not has_retest and float(social_signal.get("telegram_score", 0.0)) >= 60.0
-    dangerous_fomo = danger_keyword_count >= 2
+    dangerous_fomo = (
+        danger_keyword_count >= 2
+        or "message_pump_fomo" in message_flags
+    )
 
     flags: List[str] = []
 
@@ -210,6 +237,10 @@ def analyze_rating_risks(
     if dangerous_fomo:
         flags.append("dangerous_fomo")
 
+    for message_flag in message_flags:
+        if message_flag not in flags:
+            flags.append(message_flag)
+
     return {
         "pump_risk": pump_risk,
         "late_entry": late_entry,
@@ -220,6 +251,7 @@ def analyze_rating_risks(
         "has_retest": has_retest,
         "danger_keyword_count": danger_keyword_count,
         "positive_keyword_count": positive_keyword_count,
+        "message_flags": message_flags,
         "flags": flags,
     }
 

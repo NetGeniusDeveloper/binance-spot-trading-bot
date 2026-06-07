@@ -3,7 +3,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
 
+from config import WATCHLIST
 from social_signal_engine import analyze_social_signals
+from telegram_message_classifier import (
+    classify_message_text,
+    summarize_message_classifications,
+)
+from ticker_extractor import extract_tickers
 
 
 PREVIEW_PATH = Path("reports") / "telegram_real_messages_preview.json"
@@ -74,6 +80,8 @@ def normalize_preview_messages(messages: List[Dict[str, Any]]) -> List[Dict[str,
         if not text:
             continue
 
+        classification = classify_message_text(text)
+
         normalized_messages.append({
             "channel": message.get("channel", "unknown"),
             "message_id": message.get("message_id"),
@@ -84,9 +92,57 @@ def normalize_preview_messages(messages: List[Dict[str, Any]]) -> List[Dict[str,
             "channel_weight": message.get("channel_weight", 1.0),
             "authority_score": message.get("authority_score", 50),
             "demo": False,
+            "message_classification": classification,
         })
 
     return normalized_messages
+
+
+def build_ticker_classification_map(
+    messages: List[Dict[str, Any]],
+) -> Dict[str, List[Dict[str, Any]]]:
+    result: Dict[str, List[Dict[str, Any]]] = {}
+
+    for message in messages:
+        text = str(message.get("text", ""))
+        tickers = extract_tickers(text, WATCHLIST)
+
+        for ticker in tickers:
+            classification = message.get("message_classification")
+
+            if not isinstance(classification, dict):
+                continue
+
+            result.setdefault(ticker, []).append(classification)
+
+    return result
+
+
+def enrich_signals_with_message_classification(
+    signals: List[Dict[str, Any]],
+    messages: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    ticker_classifications = build_ticker_classification_map(messages)
+
+    enriched_signals = []
+
+    for signal in signals:
+        ticker = str(signal.get("ticker", "")).upper()
+        classifications = ticker_classifications.get(ticker, [])
+        classification_summary = summarize_message_classifications(classifications)
+
+        enriched_signal = {
+            **signal,
+            "message_classification_summary": classification_summary,
+            "message_intent": classification_summary.get("primary_intent"),
+            "message_quality_score": classification_summary.get("avg_quality_score"),
+            "message_score_adjustment": classification_summary.get("score_adjustment"),
+            "message_risk_flags": classification_summary.get("flags", []),
+        }
+
+        enriched_signals.append(enriched_signal)
+
+    return enriched_signals
 
 
 def build_not_ready_payload(preview_payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -99,6 +155,7 @@ def build_not_ready_payload(preview_payload: Dict[str, Any]) -> Dict[str, Any]:
         "binance_scanner_started": False,
         "telegram_messages_read": False,
         "social_analysis_completed": False,
+        "message_classification_completed": False,
         "safe_to_continue": False,
         "input_preview_file": str(PREVIEW_PATH),
         "output_file": str(OUTPUT_PATH),
@@ -129,17 +186,28 @@ def build_analysis_payload(preview_payload: Dict[str, Any]) -> Dict[str, Any]:
         now=analysis_now,
     )
 
+    enriched_signals = enrich_signals_with_message_classification(
+        signals=signals,
+        messages=messages,
+    )
+
     tickers_detected = sorted({
         str(signal.get("ticker"))
-        for signal in signals
+        for signal in enriched_signals
         if signal.get("ticker")
     })
 
     social_signal_count = sum(
         1
-        for signal in signals
+        for signal in enriched_signals
         if bool(signal.get("social_signal"))
     )
+
+    message_intents = sorted({
+        str(signal.get("message_intent"))
+        for signal in enriched_signals
+        if signal.get("message_intent")
+    })
 
     return {
         "source": "telegram_real_messages_analyze",
@@ -151,6 +219,7 @@ def build_analysis_payload(preview_payload: Dict[str, Any]) -> Dict[str, Any]:
         "binance_scanner_started": False,
         "telegram_messages_read": False,
         "social_analysis_completed": True,
+        "message_classification_completed": True,
         "safe_to_continue": True,
         "input_preview_file": str(PREVIEW_PATH),
         "output_file": str(OUTPUT_PATH),
@@ -158,10 +227,11 @@ def build_analysis_payload(preview_payload: Dict[str, Any]) -> Dict[str, Any]:
         "preview_created_at": preview_payload.get("created_at"),
         "preview_messages_collected": preview_payload.get("messages_collected"),
         "messages_loaded": len(messages),
-        "signals_found": len(signals),
+        "signals_found": len(enriched_signals),
         "social_signal_count": social_signal_count,
         "tickers_detected": tickers_detected,
-        "signals": signals,
+        "message_intents_detected": message_intents,
+        "signals": enriched_signals,
         "blockers": [],
         "warnings": preview_payload.get("warnings", []),
         "disclaimer": (
@@ -190,6 +260,8 @@ def save_analysis_payload(payload: Dict[str, Any], path: Path = OUTPUT_PATH) -> 
 
 
 def print_signal(signal: Dict[str, Any]) -> None:
+    classification_summary = signal.get("message_classification_summary", {})
+
     print()
     print("Ticker:", signal.get("ticker"))
     print("Status:", signal.get("status"))
@@ -202,6 +274,11 @@ def print_signal(signal: Dict[str, Any]) -> None:
     print("Weighted mentions:", signal.get("weighted_mentions"))
     print("Mention growth factor:", signal.get("mention_growth_factor"))
     print("Social signal:", signal.get("social_signal"))
+    print("Message intent:", signal.get("message_intent"))
+    print("Message quality score:", signal.get("message_quality_score"))
+    print("Message score adjustment:", signal.get("message_score_adjustment"))
+    print("Message risk flags:", ", ".join(signal.get("message_risk_flags", [])) or "none")
+    print("Message intent counts:", classification_summary.get("counts_by_intent", {}))
     print("Sample texts:", signal.get("sample_texts", []))
 
 
@@ -213,6 +290,7 @@ def print_analysis_summary(payload: Dict[str, Any], output_path: Path) -> None:
     print("Trading enabled:", payload.get("trading_enabled"))
     print("Binance scanner started:", payload.get("binance_scanner_started"))
     print("Social analysis completed:", payload.get("social_analysis_completed"))
+    print("Message classification completed:", payload.get("message_classification_completed"))
     print("Input preview file:", payload.get("input_preview_file"))
     print("Output file:", output_path)
     print()
@@ -224,6 +302,7 @@ def print_analysis_summary(payload: Dict[str, Any], output_path: Path) -> None:
     print("Signals found:", payload.get("signals_found"))
     print("Social signal count:", payload.get("social_signal_count"))
     print("Tickers detected:", ", ".join(payload.get("tickers_detected", [])) or "none")
+    print("Message intents:", ", ".join(payload.get("message_intents_detected", [])) or "none")
 
     if payload.get("blockers"):
         print("Blockers:", ", ".join(str(item) for item in payload["blockers"]))
@@ -257,6 +336,7 @@ def print_analysis_summary(payload: Dict[str, Any], output_path: Path) -> None:
     print("[OK] This analysis did not start trading bot.")
     print("[OK] This analysis did not start Binance market scanner.")
     print("[OK] This analysis only processed saved Telegram preview JSON.")
+    print("[OK] Message classification is local rule-based analysis only.")
 
     print()
     print("NEXT STEP")
@@ -267,8 +347,8 @@ def print_analysis_summary(payload: Dict[str, Any], output_path: Path) -> None:
         print("Then rerun preview and analysis.")
         return
 
-    print("Real Telegram messages were converted into social signals.")
-    print("Next safe step: connect these social signals to the existing real market scanner pipeline.")
+    print("Real Telegram messages were converted into enriched social signals.")
+    print("Next safe step: rate these enriched signals with real Binance market data.")
 
 
 def main() -> None:
