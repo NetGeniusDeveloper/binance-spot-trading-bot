@@ -218,10 +218,12 @@ def build_text_summary(payload: Dict[str, Any]) -> str:
     lines.append("SCANNER AGENT PIPELINE SUMMARY")
     lines.append("==============================")
     lines.append(f"Created at: {payload.get('created_at')}")
+    lines.append("")
     lines.append(f"Final status: {payload.get('final_status')}")
     lines.append(f"Final note: {payload.get('final_note')}")
     lines.append(f"Safe pipeline: {payload.get('safe_pipeline')}")
     lines.append("")
+
     lines.append("SCANNER")
     lines.append("=======")
     lines.append(f"Total signals loaded: {scanner.get('total_signals_loaded')}")
@@ -230,11 +232,13 @@ def build_text_summary(payload: Dict[str, Any]) -> str:
     lines.append(f"Candidates: {scanner.get('total_candidates')}")
     lines.append(f"Watchlist candidates: {scanner.get('total_watchlist_candidates')}")
     lines.append("")
+
     lines.append("DECISIONS")
     lines.append("=========")
     lines.append(f"Total decisions: {decisions.get('total_decisions')}")
     lines.append(f"Summary by decision: {decisions.get('summary_by_decision')}")
     lines.append("")
+
     lines.append("TELEGRAM")
     lines.append("========")
     lines.append(f"Telegram send enabled: {telegram.get('telegram_send_enabled')}")
@@ -244,6 +248,7 @@ def build_text_summary(payload: Dict[str, Any]) -> str:
     lines.append(f"Message length: {telegram.get('message_length')}")
     lines.append(f"Message within Telegram limit: {telegram.get('message_within_telegram_limit')}")
     lines.append("")
+
     lines.append("BLOCKERS")
     lines.append("========")
 
