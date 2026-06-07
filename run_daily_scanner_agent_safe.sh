@@ -18,6 +18,8 @@ RECOMMENDATIONS_TXT="reports/telegram_channel_config_recommendations.txt"
 RECOMMENDATIONS_JSON="reports/telegram_channel_config_recommendations.json"
 AUDIT_TXT="reports/scanner_agent_telegram_sender_audit_report.txt"
 AUDIT_JSON="reports/scanner_agent_telegram_sender_audit_report.json"
+SAFETY_GATE_TXT="reports/scanner_agent_safety_gate_report.txt"
+SAFETY_GATE_JSON="reports/scanner_agent_safety_gate_report.json"
 
 echo "======================================"
 echo "DAILY SCANNER AGENT SAFE RUN"
@@ -255,6 +257,43 @@ if recommendations:
 PY
 else
   echo "[WARN] Missing channel config recommendations JSON: ${RECOMMENDATIONS_JSON}"
+fi
+
+echo
+echo "======================================"
+echo "8A. SAFETY GATE REPORT"
+echo "======================================"
+python scanner_agent_safety_gate_report.py || echo "[WARN] Safety gate report failed"
+
+if [ -f "${SAFETY_GATE_TXT}" ]; then
+  cat "${SAFETY_GATE_TXT}"
+else
+  echo "[WARN] Missing safety gate TXT: ${SAFETY_GATE_TXT}"
+fi
+
+echo
+echo "Safety gate JSON: ${SAFETY_GATE_JSON}"
+if [ -f "${SAFETY_GATE_JSON}" ]; then
+  python - <<'PY3'
+import json
+from pathlib import Path
+
+path = Path("reports/scanner_agent_safety_gate_report.json")
+
+try:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+except Exception as ex:
+    print("[WARN] Cannot read safety gate JSON:", ex)
+    raise SystemExit
+
+print("Safety gate status:", payload.get("gate_status"))
+print("Safety gate OK:", payload.get("safety_gate_ok"))
+print("Review required:", payload.get("review_required"))
+print("Safety gate blockers:", ", ".join(payload.get("blockers", [])) or "none")
+print("Safety gate warnings:", ", ".join(payload.get("warnings", [])) or "none")
+PY3
+else
+  echo "[WARN] Missing safety gate JSON: ${SAFETY_GATE_JSON}"
 fi
 
 echo
