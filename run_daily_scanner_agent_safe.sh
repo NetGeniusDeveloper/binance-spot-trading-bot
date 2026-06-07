@@ -20,6 +20,8 @@ AUDIT_TXT="reports/scanner_agent_telegram_sender_audit_report.txt"
 AUDIT_JSON="reports/scanner_agent_telegram_sender_audit_report.json"
 SAFETY_GATE_TXT="reports/scanner_agent_safety_gate_report.txt"
 SAFETY_GATE_JSON="reports/scanner_agent_safety_gate_report.json"
+BLOCKED_RISK_TXT="reports/scanner_agent_blocked_risk_report.txt"
+BLOCKED_RISK_JSON="reports/scanner_agent_blocked_risk_report.json"
 
 echo "======================================"
 echo "DAILY SCANNER AGENT SAFE RUN"
@@ -65,6 +67,44 @@ if [ -f "${SUMMARY_TXT}" ]; then
   cat "${SUMMARY_TXT}"
 else
   echo "[WARN] Missing summary TXT: ${SUMMARY_TXT}"
+fi
+
+echo
+echo "======================================"
+echo "3B. BLOCKED RISK REPORT"
+echo "======================================"
+python scanner_agent_blocked_risk_report.py || echo "[WARN] Blocked risk report failed"
+
+if [ -f "${BLOCKED_RISK_TXT}" ]; then
+  cat "${BLOCKED_RISK_TXT}"
+else
+  echo "[WARN] Missing blocked risk TXT: ${BLOCKED_RISK_TXT}"
+fi
+
+echo
+echo "Blocked risk JSON: ${BLOCKED_RISK_JSON}"
+if [ -f "${BLOCKED_RISK_JSON}" ]; then
+  python - <<'PYBR'
+import json
+from pathlib import Path
+
+path = Path("reports/scanner_agent_blocked_risk_report.json")
+
+try:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+except Exception as ex:
+    print("[WARN] Cannot read blocked risk JSON:", ex)
+    raise SystemExit
+
+print("Blocked risk safe to continue:", payload.get("safe_to_continue"))
+print("Blocked risk count:", payload.get("blocked_count"))
+print("Blocked risk levels:", payload.get("summary_by_risk_level"))
+print("Blocked risk flags:", payload.get("summary_by_risk_flag"))
+print("Blocked risk blockers:", ", ".join(payload.get("blockers", [])) or "none")
+print("Blocked risk warnings:", ", ".join(payload.get("warnings", [])) or "none")
+PYBR
+else
+  echo "[WARN] Missing blocked risk JSON: ${BLOCKED_RISK_JSON}"
 fi
 
 echo
