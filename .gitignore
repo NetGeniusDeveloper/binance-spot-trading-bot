@@ -37,3 +37,4 @@ reports/*.json
 
 # Generated scanner text reports
 reports/*.txt
+reports/*.log
