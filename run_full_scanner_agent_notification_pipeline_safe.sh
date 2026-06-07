@@ -46,6 +46,7 @@ python -m py_compile \
   scanner_agent_export_report.py \
   scanner_agent_decision.py \
   scanner_agent_decision_report.py \
+  scanner_agent_blocked_risk_report.py \
   scanner_agent_notification_report.py \
   scanner_agent_telegram_message_preview.py \
   scanner_agent_telegram_sender_dry_run.py \
@@ -91,6 +92,12 @@ echo "======================================"
 echo "6. SCANNER AGENT DECISION REPORT SAFE RUN"
 echo "======================================"
 ./run_scanner_agent_decision_report.sh
+
+echo
+echo "======================================"
+echo "6A. SCANNER AGENT BLOCKED RISK REPORT SAFE RUN"
+echo "======================================"
+python scanner_agent_blocked_risk_report.py
 
 echo
 echo "======================================"
@@ -210,6 +217,8 @@ echo "Telegram channel config recommendations TXT: reports/telegram_channel_conf
 echo "Markdown report: reports/social_scanner_demo_report.md"
 echo "Agent export JSON: reports/scanner_agent_export.json"
 echo "Agent decision JSON: reports/scanner_agent_decision.json"
+echo "Blocked risk report JSON: reports/scanner_agent_blocked_risk_report.json"
+echo "Blocked risk report TXT: reports/scanner_agent_blocked_risk_report.txt"
 echo "Agent notification report TXT: reports/scanner_agent_notification_report.txt"
 echo "Telegram message preview TXT: reports/scanner_agent_telegram_message_preview.txt"
 echo "Telegram sender dry-run JSON: reports/scanner_agent_telegram_sender_dry_run.json"
