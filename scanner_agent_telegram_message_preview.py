@@ -164,6 +164,16 @@ def build_compact_item_block(item: Dict[str, Any]) -> List[str]:
         f"flags={format_list(item.get('message_risk_flags'))}"
     )
     lines.append(f"Причина: {extract_main_reason(item)}")
+
+    block_reasons = normalize_list(item.get("block_reasons", []))
+    if block_reasons:
+        lines.append("Почему заблокировано/ограничено:")
+        for reason in block_reasons[:4]:
+            lines.append(f"- {reason}")
+
+    if item.get("recommended_next_step"):
+        lines.append(f"Что дальше: {item.get('recommended_next_step')}")
+
     lines.append("")
 
     return lines

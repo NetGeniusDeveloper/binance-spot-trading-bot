@@ -170,6 +170,10 @@ def build_short_item_summary(item: Dict[str, Any]) -> List[str]:
         f"Message quality: {format_score(item.get('message_quality_score'))}",
         f"Message flags: {format_list(item.get('message_risk_flags'))}",
         f"Main reason: {extract_human_reason(item)}",
+        f"Block reasons: {format_list(item.get('block_reasons'))}",
+        f"Risk explanation: {item.get('risk_explanation')}",
+        f"Manager note: {item.get('manager_note')}",
+        f"Recommended next step: {item.get('recommended_next_step')}",
         f"Safe note: {item.get('safe_note')}",
     ]
 

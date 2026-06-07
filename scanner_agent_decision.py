@@ -99,6 +99,180 @@ def has_any(items: List[str], flags: set[str]) -> bool:
     return any(item in flags for item in items)
 
 
+
+
+RISK_FLAG_LABELS = {
+    "pump_risk": "обнаружен риск пампа или перегретого движения",
+    "dangerous_fomo": "сообщение похоже на FOMO/агрессивный призыв",
+    "late_entry": "вход выглядит поздним после сильного движения",
+    "very_close_to_high": "цена находится слишком близко к локальному максимуму",
+    "low_liquidity": "низкая ликвидность для безопасного сценария",
+    "thin_liquidity": "тонкая ликвидность, повышенный риск проскальзывания",
+    "wide_spread": "широкий спред",
+    "very_wide_spread": "очень широкий спред",
+    "no_market_confirmation": "нет рыночного подтверждения",
+    "weak_social_confirmation": "слабое подтверждение со стороны Telegram/соцсигнала",
+    "needs_retest": "нужен ретест перед любыми действиями",
+    "message_wait_confirmation": "сообщение требует ожидания подтверждения",
+    "message_pump_fomo": "текст сообщения похож на памп/FOMO",
+}
+
+
+def explain_risk_flag(flag: str) -> str:
+    return RISK_FLAG_LABELS.get(str(flag), str(flag))
+
+
+def build_block_reasons(
+    decision: str,
+    risk_flags: List[str],
+    message_flags: List[str],
+    market_confirmation: bool,
+    has_retest: bool,
+    action_hint: str,
+) -> List[str]:
+    reasons: List[str] = []
+
+    for flag in risk_flags:
+        explanation = explain_risk_flag(flag)
+        if explanation not in reasons:
+            reasons.append(explanation)
+
+    for flag in message_flags:
+        explanation = explain_risk_flag(flag)
+        if explanation not in reasons:
+            reasons.append(explanation)
+
+    if not market_confirmation:
+        explanation = explain_risk_flag("no_market_confirmation")
+        if explanation not in reasons:
+            reasons.append(explanation)
+
+    if not has_retest and decision in {"wait_retest", "blocked_risk"}:
+        explanation = explain_risk_flag("needs_retest")
+        if explanation not in reasons:
+            reasons.append(explanation)
+
+    if action_hint == "entry_forbidden":
+        reasons.append("вход запрещён безопасной логикой сканера")
+
+    if not reasons:
+        reasons.append("нет отдельной блокирующей причины, требуется ручная оценка")
+
+    return reasons
+
+
+def build_risk_explanation(
+    decision: str,
+    risk_level: str,
+    block_reasons: List[str],
+) -> str:
+    if decision == "blocked_risk":
+        return (
+            "Сигнал заблокирован риск-фильтром. Причины: "
+            + "; ".join(block_reasons)
+            + "."
+        )
+
+    if decision == "wait_retest":
+        return (
+            "Сигнал не заблокирован полностью, но вход запрещён до ретеста "
+            "или дополнительного подтверждения."
+        )
+
+    if decision == "wait_confirmation":
+        return (
+            "Сигнал требует подтверждения. Без подтверждения вход запрещён."
+        )
+
+    if decision == "observe":
+        return (
+            "Сигнал подходит только для наблюдения. Автоматический вход запрещён."
+        )
+
+    if decision == "candidate":
+        return (
+            "Сильный аналитический кандидат, но это всё равно не команда на вход. "
+            "Нужна ручная проверка."
+        )
+
+    return (
+        "Сигнал слабый, нейтральный или не подходит для действия. "
+        f"Уровень риска: {risk_level}."
+    )
+
+
+def build_manager_note(
+    item: Dict[str, Any],
+    decision: str,
+    risk_level: str,
+    block_reasons: List[str],
+) -> str:
+    pair = item.get("pair")
+    final_score = float(item.get("final_score") or 0.0)
+    market_score = float(item.get("market_score") or 0.0)
+    telegram_score = float(item.get("telegram_score") or 0.0)
+
+    if decision == "blocked_risk":
+        return (
+            f"{pair}: не использовать для входа. "
+            f"Риск: {risk_level}. "
+            f"Оценки final={final_score}, market={market_score}, telegram={telegram_score}. "
+            f"Главные причины: {'; '.join(block_reasons[:4])}."
+        )
+
+    if decision in {"wait_retest", "wait_confirmation"}:
+        return (
+            f"{pair}: наблюдать, но вход запрещён до подтверждения. "
+            f"Оценки final={final_score}, market={market_score}, telegram={telegram_score}."
+        )
+
+    if decision == "observe":
+        return (
+            f"{pair}: только наблюдение. Для действия недостаточно подтверждений."
+        )
+
+    if decision == "candidate":
+        return (
+            f"{pair}: сильный аналитический кандидат, требуется ручная проверка."
+        )
+
+    return f"{pair}: сигнал слабый или нейтральный, действие не требуется."
+
+
+def build_recommended_next_step(
+    decision: str,
+    risk_flags: List[str],
+    message_flags: List[str],
+    has_retest: bool,
+) -> str:
+    all_flags = set(risk_flags + message_flags)
+
+    if decision == "blocked_risk":
+        if "pump_risk" in all_flags or "dangerous_fomo" in all_flags:
+            return "Не входить. Дождаться охлаждения рынка и новых независимых подтверждений."
+        if "low_liquidity" in all_flags or "thin_liquidity" in all_flags:
+            return "Не входить. Проверить ликвидность позже или исключить инструмент из активного наблюдения."
+        if "no_market_confirmation" in all_flags:
+            return "Не входить. Ждать рыночного подтверждения и повторного анализа."
+        return "Не входить. Оставить только в аналитическом журнале."
+
+    if decision == "wait_retest":
+        return "Ждать ретест уровня и повторный сигнал. До ретеста вход запрещён."
+
+    if decision == "wait_confirmation":
+        return "Ждать подтверждения объёмом, ценой и новым сообщением. До подтверждения вход запрещён."
+
+    if decision == "observe":
+        return "Продолжить наблюдение без отправки команды на вход."
+
+    if decision == "candidate":
+        if has_retest:
+            return "Перед любыми действиями выполнить ручную проверку графика, ликвидности и риска."
+        return "Сначала дождаться ретеста, затем выполнить ручную проверку."
+
+    return "Игнорировать сигнал и продолжить сбор данных."
+
+
 def build_decision_reason(
     item: Dict[str, Any],
     decision: str,
@@ -246,6 +420,32 @@ def decide_item(item: Dict[str, Any], source_group: str) -> Dict[str, Any]:
         decision = "ignore"
         priority = 20
 
+    block_reasons = build_block_reasons(
+        decision=decision,
+        risk_flags=risk_flags,
+        message_flags=message_flags,
+        market_confirmation=market_confirmation,
+        has_retest=has_retest,
+        action_hint=action_hint,
+    )
+    risk_explanation = build_risk_explanation(
+        decision=decision,
+        risk_level=risk_level,
+        block_reasons=block_reasons,
+    )
+    manager_note = build_manager_note(
+        item=item,
+        decision=decision,
+        risk_level=risk_level,
+        block_reasons=block_reasons,
+    )
+    recommended_next_step = build_recommended_next_step(
+        decision=decision,
+        risk_flags=risk_flags,
+        message_flags=message_flags,
+        has_retest=has_retest,
+    )
+
     return {
         "source": "scanner_agent_decision",
         "created_at": datetime.now().isoformat(timespec="seconds"),
@@ -275,6 +475,10 @@ def decide_item(item: Dict[str, Any], source_group: str) -> Dict[str, Any]:
         "message_risk_flags": message_flags,
         "message_reasons": item.get("message_reasons", []),
         "message_intent_counts": item.get("message_intent_counts", {}),
+        "block_reasons": block_reasons,
+        "risk_explanation": risk_explanation,
+        "manager_note": manager_note,
+        "recommended_next_step": recommended_next_step,
         "reasons": build_decision_reason(
             item=item,
             decision=decision,

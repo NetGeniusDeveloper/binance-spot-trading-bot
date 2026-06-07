@@ -223,9 +223,29 @@ def print_safe_note(item: Dict[str, Any]) -> None:
         print("  Safe note:", safe_note)
 
 
+
+def print_human_decision_fields(item: Dict[str, Any]) -> None:
+    block_reasons = normalize_list(item.get("block_reasons", []))
+
+    if block_reasons:
+        print("  Human block reasons:")
+        for reason in block_reasons:
+            print("   -", reason)
+
+    if item.get("risk_explanation"):
+        print("  Risk explanation:", item.get("risk_explanation"))
+
+    if item.get("manager_note"):
+        print("  Manager note:", item.get("manager_note"))
+
+    if item.get("recommended_next_step"):
+        print("  Recommended next step:", item.get("recommended_next_step"))
+
+
 def print_item_details(item: Dict[str, Any]) -> None:
     print_decision_line(item)
     print_message_details(item)
+    print_human_decision_fields(item)
     print_reasons(item)
     print_safe_note(item)
     print()
