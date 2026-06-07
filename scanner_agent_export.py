@@ -12,9 +12,9 @@ EXPORT_PATH = REPORTS_DIR / "scanner_agent_export.json"
 
 MIN_FINAL_SCORE = 60.0
 MIN_WATCHLIST_SCORE = 55.0
+MIN_WEAK_WATCHLIST_SCORE = 35.0
 
-EXCLUDED_STATUSES = {
-    "пропустить",
+BLOCKED_STATUSES = {
     "опасный памп",
 }
 
@@ -25,6 +25,10 @@ CANDIDATE_STATUSES = {
 
 WATCHLIST_STATUSES = {
     "только наблюдать",
+}
+
+WEAK_WATCHLIST_STATUSES = {
+    "пропустить",
 }
 
 
@@ -64,6 +68,13 @@ def load_raw_scanner_signals() -> List[Dict[str, Any]]:
     return signals
 
 
+def safe_float(value: Any, default: float = 0.0) -> float:
+    try:
+        return float(value)
+    except Exception:
+        return default
+
+
 def get_risk_flags(signal: Dict[str, Any]) -> List[str]:
     risk_flags = signal.get("risk_flags", [])
 
@@ -80,17 +91,38 @@ def get_risk_flags(signal: Dict[str, Any]) -> List[str]:
     return []
 
 
+def get_social_signal(signal: Dict[str, Any]) -> Dict[str, Any]:
+    social_signal = signal.get("social_signal", {})
+
+    if isinstance(social_signal, dict):
+        return social_signal
+
+    return {}
+
+
+def get_message_intent(signal: Dict[str, Any]) -> str:
+    social_signal = get_social_signal(signal)
+    return str(social_signal.get("message_intent") or "").strip()
+
+
+def get_message_score_adjustment(signal: Dict[str, Any]) -> float:
+    social_signal = get_social_signal(signal)
+    return safe_float(social_signal.get("message_score_adjustment"), 0.0)
+
+
 def is_blocked_signal(signal: Dict[str, Any]) -> bool:
     """
-    Block signals that must not be sent to the future agent layer.
+    Block only clearly dangerous analytical signals.
 
-    This does not approve trades.
-    It only prevents dangerous or useless analytical signals from being exported.
+    Important:
+    - Status 'пропустить' is no longer automatically blocked.
+    - Weak safe signals may still be exported to watchlist for observation.
+    - This does not approve trades and does not allow order execution.
     """
     status = str(signal.get("status", ""))
     risk_flags = get_risk_flags(signal)
 
-    if status in EXCLUDED_STATUSES:
+    if status in BLOCKED_STATUSES:
         return True
 
     if "pump_risk" in risk_flags:
@@ -109,13 +141,13 @@ def is_export_candidate(signal: Dict[str, Any]) -> bool:
     Important:
     - This does not approve trades.
     - This does not allow order execution.
-    - Status 'только наблюдать' must never become a candidate.
+    - Status 'только наблюдать' and 'пропустить' must never become candidates.
     """
     if is_blocked_signal(signal):
         return False
 
     status = str(signal.get("status", ""))
-    final_score = float(signal.get("final_score", 0.0))
+    final_score = safe_float(signal.get("final_score"), 0.0)
 
     if status not in CANDIDATE_STATUSES:
         return False
@@ -126,6 +158,51 @@ def is_export_candidate(signal: Dict[str, Any]) -> bool:
     return True
 
 
+def is_weak_watchlist_candidate(signal: Dict[str, Any]) -> bool:
+    """
+    Select weak but safe analytical signals for observation only.
+
+    This exists because status 'пропустить' can still contain useful information:
+    - neutral BTC/ETH market mention;
+    - SOL/TON watch message;
+    - low score but no dangerous risk flags.
+
+    Weak watchlist signals:
+    - are NOT trade candidates;
+    - are NOT order permissions;
+    - are only passed to the decision/report layer for visibility.
+    """
+    if is_blocked_signal(signal):
+        return False
+
+    status = str(signal.get("status", ""))
+    final_score = safe_float(signal.get("final_score"), 0.0)
+    market_score = safe_float(signal.get("market_score"), 0.0)
+    telegram_score = safe_float(signal.get("telegram_score"), 0.0)
+    message_intent = get_message_intent(signal)
+    message_score_adjustment = get_message_score_adjustment(signal)
+
+    if status not in WEAK_WATCHLIST_STATUSES:
+        return False
+
+    if final_score < MIN_WEAK_WATCHLIST_SCORE:
+        return False
+
+    if telegram_score > 0:
+        return True
+
+    if message_score_adjustment > 0:
+        return True
+
+    if message_intent in {"watch_signal", "possible_news"}:
+        return True
+
+    if market_score >= 40:
+        return True
+
+    return False
+
+
 def is_watchlist_candidate(signal: Dict[str, Any]) -> bool:
     """
     Select weaker but still interesting signals for observation.
@@ -134,7 +211,7 @@ def is_watchlist_candidate(signal: Dict[str, Any]) -> bool:
     - strong Telegram/social signal;
     - market is not confirmed yet;
     - status is 'только наблюдать';
-    - final score is below strict candidate threshold.
+    - status is 'пропустить' but final score is still useful for observation.
     """
     if is_blocked_signal(signal):
         return False
@@ -143,7 +220,7 @@ def is_watchlist_candidate(signal: Dict[str, Any]) -> bool:
         return False
 
     status = str(signal.get("status", ""))
-    final_score = float(signal.get("final_score", 0.0))
+    final_score = safe_float(signal.get("final_score"), 0.0)
 
     if status in WATCHLIST_STATUSES:
         return True
@@ -154,13 +231,25 @@ def is_watchlist_candidate(signal: Dict[str, Any]) -> bool:
     if final_score >= MIN_WATCHLIST_SCORE:
         return True
 
+    if is_weak_watchlist_candidate(signal):
+        return True
+
     return False
+
+
+def get_export_group(signal: Dict[str, Any]) -> str:
+    status = str(signal.get("status", ""))
+
+    if status in WEAK_WATCHLIST_STATUSES:
+        return "weak_watchlist"
+
+    return "watchlist"
 
 
 def build_agent_item(signal: Dict[str, Any], export_group: str) -> Dict[str, Any]:
     agent_item = export_signal_for_agent(signal)
 
-    social_signal = signal.get("social_signal", {})
+    social_signal = get_social_signal(signal)
     classification_summary = social_signal.get("message_classification_summary", {})
 
     if not isinstance(classification_summary, dict):
@@ -197,7 +286,12 @@ def build_agent_export_payload(signals: List[Dict[str, Any]]) -> Dict[str, Any]:
             continue
 
         if is_watchlist_candidate(signal):
-            watchlist_candidates.append(build_agent_item(signal, export_group="watchlist"))
+            watchlist_candidates.append(
+                build_agent_item(
+                    signal,
+                    export_group=get_export_group(signal),
+                )
+            )
             continue
 
         if is_blocked_signal(signal):
@@ -206,12 +300,12 @@ def build_agent_export_payload(signals: List[Dict[str, Any]]) -> Dict[str, Any]:
             ignored_count += 1
 
     candidates.sort(
-        key=lambda item: float(item.get("final_score") or 0.0),
+        key=lambda item: safe_float(item.get("final_score"), 0.0),
         reverse=True,
     )
 
     watchlist_candidates.sort(
-        key=lambda item: float(item.get("final_score") or 0.0),
+        key=lambda item: safe_float(item.get("final_score"), 0.0),
         reverse=True,
     )
 
@@ -222,8 +316,10 @@ def build_agent_export_payload(signals: List[Dict[str, Any]]) -> Dict[str, Any]:
         "order_execution_allowed": False,
         "min_final_score": MIN_FINAL_SCORE,
         "min_watchlist_score": MIN_WATCHLIST_SCORE,
+        "min_weak_watchlist_score": MIN_WEAK_WATCHLIST_SCORE,
         "candidate_statuses": sorted(CANDIDATE_STATUSES),
-        "excluded_statuses": sorted(EXCLUDED_STATUSES),
+        "blocked_statuses": sorted(BLOCKED_STATUSES),
+        "weak_watchlist_statuses": sorted(WEAK_WATCHLIST_STATUSES),
         "watchlist_statuses": sorted(WATCHLIST_STATUSES),
         "total_signals_loaded": len(signals),
         "total_candidates": len(candidates),
@@ -235,6 +331,7 @@ def build_agent_export_payload(signals: List[Dict[str, Any]]) -> Dict[str, Any]:
         "disclaimer": (
             "Telegram/social signal is not a trading entry. "
             "This export is for analytical filtering only. "
+            "Weak watchlist signals are observation-only. "
             "No orders are created."
         ),
     }
@@ -267,6 +364,7 @@ def print_items(title: str, items: List[Dict[str, Any]]) -> None:
     for item in items:
         print(
             str(item.get("pair")).ljust(10),
+            "group=" + str(item.get("export_group")),
             "status=" + str(item.get("suggested_status")),
             "final=" + str(item.get("final_score")),
             "telegram=" + str(item.get("telegram_score")),
@@ -283,8 +381,11 @@ def print_agent_export_summary(payload: Dict[str, Any], export_path: Path) -> No
     print("Order execution allowed:", payload["order_execution_allowed"])
     print("Min final score:", payload["min_final_score"])
     print("Min watchlist score:", payload["min_watchlist_score"])
+    print("Min weak watchlist score:", payload["min_weak_watchlist_score"])
     print("Candidate statuses:", ", ".join(payload["candidate_statuses"]))
     print("Watchlist statuses:", ", ".join(payload["watchlist_statuses"]))
+    print("Weak watchlist statuses:", ", ".join(payload["weak_watchlist_statuses"]))
+    print("Blocked statuses:", ", ".join(payload["blocked_statuses"]))
     print("Total signals loaded:", payload["total_signals_loaded"])
     print("Total candidates:", payload["total_candidates"])
     print("Total watchlist candidates:", payload["total_watchlist_candidates"])
