@@ -47,7 +47,8 @@ python -m py_compile \
   scanner_agent_notification_report.py \
   scanner_agent_telegram_message_preview.py \
   scanner_agent_telegram_sender_dry_run.py \
-  scanner_agent_telegram_sender.py
+  scanner_agent_telegram_sender.py \
+  scanner_agent_pipeline_summary.py
 
 echo "[OK] Python files compiled successfully"
 
@@ -142,6 +143,12 @@ fi
 
 echo
 echo "======================================"
+echo "8. SCANNER AGENT PIPELINE SUMMARY"
+echo "======================================"
+python scanner_agent_pipeline_summary.py
+
+echo
+echo "======================================"
 echo "9. FINAL GENERATED / USED FILES"
 echo "======================================"
 echo "Telegram preview JSON: reports/telegram_real_messages_preview.json"
@@ -153,7 +160,7 @@ echo "Agent decision JSON: reports/scanner_agent_decision.json"
 echo "Agent notification report TXT: reports/scanner_agent_notification_report.txt"
 echo "Telegram message preview TXT: reports/scanner_agent_telegram_message_preview.txt"
 echo "Telegram sender dry-run JSON: reports/scanner_agent_telegram_sender_dry_run.json"
-echo "Telegram sender result JSON: reports/scanner_agent_telegram_sender_result.json"
+echo "Telegram sender result JSON: reports/scanner_agent_telegram_sender_result.json"\necho "Pipeline summary JSON: reports/scanner_agent_pipeline_summary.json"\necho "Pipeline summary TXT: reports/scanner_agent_pipeline_summary.txt"
 echo "SQLite DB: data/social_scanner.db"
 
 echo
