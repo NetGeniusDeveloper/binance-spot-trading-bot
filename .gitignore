@@ -34,3 +34,6 @@ reports/*.json
 # Telegram client session files
 *.session
 *.session-journal
+
+# Generated scanner text reports
+reports/*.txt
