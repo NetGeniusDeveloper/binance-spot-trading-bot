@@ -29,8 +29,8 @@ The project works in safe analytical mode:
 Current stable baseline before installing this English documentation pack:
 
 ```text
-tag: scanner-safe-release-map-v1
-commit: 9890b2c
+tag: scanner-safe-project-status-v1
+commit: ea6a4b4
 branch: main
 ```
 
@@ -660,3 +660,81 @@ After installing this English documentation pack:
 ```text
 Run full validation, commit README.md CRON_SETUP.md SAFE_RELEASES.md, push to GitHub, then create scanner-safe-english-docs-v1.
 ```
+
+### scanner-safe-project-status-v1
+
+Purpose:
+
+```text
+Stable build with PROJECT_STATUS.md added as a short current project status summary.
+```
+
+What was added:
+
+- `PROJECT_STATUS.md`;
+- short English status summary for the project;
+- current stable tag reference;
+- safe manual run commands;
+- safe cron wrapper commands;
+- safety criteria;
+- Telegram notification rule;
+- blocked risk rule;
+- recommended Git workflow before future development.
+
+Key files:
+
+```text
+PROJECT_STATUS.md
+README.md
+CRON_SETUP.md
+SAFE_RELEASES.md
+```
+
+Verification:
+
+```bash
+cd /root/binance-spot-trading-bot
+
+git status
+cat PROJECT_STATUS.md
+grep -n "scanner-safe-project-status-v1\|PROJECT_STATUS" PROJECT_STATUS.md SAFE_RELEASES.md README.md
+git tag --list
+git log --oneline -5
+```
+
+Expected result:
+
+```text
+On branch main
+Your branch is up to date with 'origin/main'.
+nothing to commit, working tree clean
+```
+
+Stable point:
+
+```text
+tag: scanner-safe-project-status-v1
+commit: ea6a4b4
+branch: main
+```
+
+---
+
+## Recommended next stable map tag
+
+After committing this SAFE_RELEASES.md update, use a new tag because
+`scanner-safe-project-status-map-v1` may already exist before this file update.
+
+Recommended new tag:
+
+```text
+scanner-safe-project-status-map-v2
+```
+
+Commands:
+
+```bash
+git tag -a scanner-safe-project-status-map-v2 -m "Stable release map with project status"
+git push origin scanner-safe-project-status-map-v2
+```
+
