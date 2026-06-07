@@ -119,7 +119,7 @@ def extract_main_reason(item: Dict[str, Any]) -> str:
         return "нет подробного объяснения"
 
     priority_fragments = [
-        "signal needs retest",
+        "нужен ретест",
         "message asks",
         "suitable only for observation",
         "strong analytical candidate",

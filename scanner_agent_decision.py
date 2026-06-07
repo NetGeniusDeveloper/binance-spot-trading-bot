@@ -106,7 +106,7 @@ def build_decision_reason(
         reasons.append("message asks to wait for confirmation")
 
     if decision == "wait_retest":
-        reasons.append("signal needs retest or confirmation before any further action")
+        reasons.append("нужен ретест или подтверждение перед любыми действиями")
 
     if decision == "observe":
         reasons.append("signal is suitable only for observation")
@@ -115,7 +115,7 @@ def build_decision_reason(
         reasons.append("strong analytical candidate, still not a trade entry")
 
     if decision == "ignore":
-        reasons.append("signal is weak, neutral, or not actionable")
+        reasons.append("сигнал слабый, нейтральный или не подходит для действия")
 
     return reasons
 

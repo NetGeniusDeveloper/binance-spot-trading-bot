@@ -34,7 +34,7 @@ ACTION_BY_DECISION = {
     "wait_retest": "Wait for retest or confirmation. No entry now.",
     "observe": "Observation only. No entry now.",
     "blocked_risk": "Blocked by risk filter. Do not use.",
-    "ignore": "Ignore. Signal is weak, neutral, or not actionable.",
+    "ignore": "Ignore. Сигнал слабый, нейтральный или не подходит для действия.",
 }
 
 
@@ -126,7 +126,7 @@ def extract_human_reason(item: Dict[str, Any]) -> str:
         return "No detailed reason."
 
     priority_phrases = [
-        "signal needs retest",
+        "нужен ретест",
         "message asks",
         "suitable only for observation",
         "strong analytical candidate",
