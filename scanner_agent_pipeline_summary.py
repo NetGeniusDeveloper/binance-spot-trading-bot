@@ -107,6 +107,19 @@ def build_summary_payload() -> Dict[str, Any]:
 
     total_decisions = int(decision_data.get("total_decisions") or len(decisions) or 0)
 
+    sender_result_ignored_because_no_decisions = total_decisions <= 0
+
+    if sender_result_ignored_because_no_decisions:
+        dry_run_data = {}
+        sender_data = {}
+        blockers = []
+        warnings = [
+            warning
+            for warning in warnings
+            if "scanner_telegram_" not in str(warning)
+            and "send_not_attempted" not in str(warning)
+        ]
+
     telegram_send_enabled = bool_value(sender_data.get("telegram_send_enabled", False))
     telegram_manual_confirm = bool_value(sender_data.get("telegram_manual_confirm", False))
 
@@ -208,6 +221,7 @@ def build_summary_payload() -> Dict[str, Any]:
             "summary_by_decision": decision_data.get("summary_by_decision", {}),
         },
         "telegram": {
+            "sender_result_ignored_because_no_decisions": sender_result_ignored_because_no_decisions,
             "telegram_send_enabled": telegram_send_enabled,
             "telegram_manual_confirm": telegram_manual_confirm,
             "scanner_telegram_send_enabled": scanner_telegram_send_enabled,
@@ -279,6 +293,7 @@ def build_text_summary(payload: Dict[str, Any]) -> str:
 
     lines.append("TELEGRAM")
     lines.append("========")
+    lines.append(f"Sender result ignored because no decisions: {telegram.get('sender_result_ignored_because_no_decisions')}")
     lines.append(f"Telegram send enabled: {telegram.get('telegram_send_enabled')}")
     lines.append(f"Telegram manual confirm: {telegram.get('telegram_manual_confirm')}")
     lines.append(f"Scanner Telegram send enabled: {telegram.get('scanner_telegram_send_enabled')}")
@@ -360,6 +375,7 @@ def print_summary(payload: Dict[str, Any], json_path: Path, txt_path: Path) -> N
     print("Candidates:", scanner.get("total_candidates"))
     print("Watchlist:", scanner.get("total_watchlist_candidates"))
     print("Decisions:", decisions.get("total_decisions"))
+    print("Sender result ignored because no decisions:", telegram.get("sender_result_ignored_because_no_decisions"))
     print("Telegram send enabled:", telegram.get("telegram_send_enabled"))
     print("Telegram manual confirm:", telegram.get("telegram_manual_confirm"))
     print("Ready for real sender now:", telegram.get("ready_for_real_sender_now"))

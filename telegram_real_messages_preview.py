@@ -1,6 +1,6 @@
 import asyncio
 import json
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -19,6 +19,7 @@ OUTPUT_PATH = REPORTS_DIR / "telegram_real_messages_preview.json"
 
 DEFAULT_LIMIT_PER_CHANNEL = 5
 MAX_TEXT_PREVIEW_LENGTH = 500
+DEFAULT_MAX_MESSAGE_AGE_HOURS = 48
 
 
 def truncate_text(text: str, max_length: int = MAX_TEXT_PREVIEW_LENGTH) -> str:
@@ -28,6 +29,26 @@ def truncate_text(text: str, max_length: int = MAX_TEXT_PREVIEW_LENGTH) -> str:
         return clean_text
 
     return clean_text[:max_length].rstrip() + "..."
+
+
+def get_message_created_at(message: Any) -> datetime:
+    message_date = getattr(message, "date", None)
+
+    if message_date is None:
+        return datetime.now(UTC).replace(tzinfo=None)
+
+    return message_date.replace(tzinfo=None)
+
+
+def is_message_fresh(
+    message: Any,
+    now: datetime,
+    max_age_hours: int = DEFAULT_MAX_MESSAGE_AGE_HOURS,
+) -> bool:
+    created_at = get_message_created_at(message)
+    max_age = timedelta(hours=int(max_age_hours))
+
+    return created_at >= now - max_age
 
 
 def build_not_ready_payload(connection_result: Dict[str, Any]) -> Dict[str, Any]:
@@ -47,6 +68,9 @@ def build_not_ready_payload(connection_result: Dict[str, Any]) -> Dict[str, Any]
         "channels_failed": 0,
         "messages_collected": 0,
         "limit_per_channel": DEFAULT_LIMIT_PER_CHANNEL,
+        "max_message_age_hours": DEFAULT_MAX_MESSAGE_AGE_HOURS,
+        "skipped_old_messages": 0,
+        "skipped_empty_messages": 0,
         "blockers": connection_result.get("blockers", []),
         "warnings": connection_result.get("warnings", []),
         "messages": [],
@@ -75,6 +99,9 @@ def build_empty_channels_payload(connection_result: Dict[str, Any]) -> Dict[str,
         "channels_failed": 0,
         "messages_collected": 0,
         "limit_per_channel": DEFAULT_LIMIT_PER_CHANNEL,
+        "max_message_age_hours": DEFAULT_MAX_MESSAGE_AGE_HOURS,
+        "skipped_old_messages": 0,
+        "skipped_empty_messages": 0,
         "blockers": [],
         "warnings": ["no_real_channels_configured"],
         "messages": [],
@@ -153,6 +180,9 @@ async def run_real_messages_preview_async(
         "channels_failed": 0,
         "messages_collected": 0,
         "limit_per_channel": int(limit_per_channel),
+        "max_message_age_hours": DEFAULT_MAX_MESSAGE_AGE_HOURS,
+        "skipped_old_messages": 0,
+        "skipped_empty_messages": 0,
         "blockers": [],
         "warnings": connection_result.get("warnings", []),
         "messages": [],
@@ -162,6 +192,8 @@ async def run_real_messages_preview_async(
             "This preview does not create orders and does not start trading."
         ),
     }
+
+    now = datetime.now(UTC).replace(tzinfo=None)
 
     async with TelegramClient(
         TELEGRAM_SESSION_NAME,
@@ -189,6 +221,15 @@ async def run_real_messages_preview_async(
                     text = getattr(message, "message", "") or ""
 
                     if not str(text).strip():
+                        payload["skipped_empty_messages"] += 1
+                        continue
+
+                    if not is_message_fresh(
+                        message,
+                        now=now,
+                        max_age_hours=DEFAULT_MAX_MESSAGE_AGE_HOURS,
+                    ):
+                        payload["skipped_old_messages"] += 1
                         continue
 
                     payload["messages"].append(build_message_item(channel, message))
@@ -259,6 +300,9 @@ def print_preview_summary(payload: Dict[str, Any], output_path: Path) -> None:
     print("Channels failed:", payload.get("channels_failed"))
     print("Messages collected:", payload.get("messages_collected"))
     print("Limit per channel:", payload.get("limit_per_channel"))
+    print("Max message age hours:", payload.get("max_message_age_hours"))
+    print("Skipped old messages:", payload.get("skipped_old_messages"))
+    print("Skipped empty messages:", payload.get("skipped_empty_messages"))
 
     if payload.get("blockers"):
         print("Blockers:", ", ".join(str(item) for item in payload["blockers"]))
