@@ -143,13 +143,24 @@ fi
 
 echo
 echo "======================================"
-echo "8. SCANNER AGENT PIPELINE SUMMARY"
+echo "9. SCANNER AGENT PIPELINE SUMMARY"
 echo "======================================"
 python scanner_agent_pipeline_summary.py
 
 echo
 echo "======================================"
-echo "9. FINAL GENERATED / USED FILES"
+echo "10. FINAL PIPELINE SUMMARY TXT"
+echo "======================================"
+
+if [ -f "reports/scanner_agent_pipeline_summary.txt" ]; then
+  cat reports/scanner_agent_pipeline_summary.txt
+else
+  echo "[WARN] Missing: reports/scanner_agent_pipeline_summary.txt"
+fi
+
+echo
+echo "======================================"
+echo "11. FINAL GENERATED / USED FILES"
 echo "======================================"
 echo "Telegram preview JSON: reports/telegram_real_messages_preview.json"
 echo "Telegram social analysis JSON: reports/telegram_real_social_signals.json"
@@ -167,7 +178,7 @@ echo "SQLite DB: data/social_scanner.db"
 
 echo
 echo "======================================"
-echo "10. FINAL SAFETY RESULT"
+echo "12. FINAL SAFETY RESULT"
 echo "======================================"
 echo "[OK] This full pipeline did not create orders"
 echo "[OK] This full pipeline did not run trading bot"
