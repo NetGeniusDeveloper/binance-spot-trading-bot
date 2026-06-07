@@ -28,15 +28,15 @@
 Актуальная стабильная версия на момент создания этого файла:
 
 ```text
-tag: scanner-safe-gate-count-fix-v1
-commit: f37fdb0
+tag: scanner-safe-release-notes-linked-v1
+commit: 4fda850
 branch: main
 ```
 
 Описание:
 
 ```text
-Стабильная сборка с исправленным источником счётчика total_decisions в safety gate.
+Стабильная сборка с SAFE_RELEASES.md, ссылкой на карту стабильных релизов в README.md и исправленным safety gate decision count.
 ```
 
 Почему это важно:
@@ -281,6 +281,49 @@ Telegram message sent: False
 
 ---
 
+### scanner-safe-release-notes-linked-v1
+
+Назначение:
+
+```text
+Финальная стабильная сборка с SAFE_RELEASES.md и ссылкой на карту стабильных релизов из README.md.
+```
+
+Что добавлено:
+
+- файл `SAFE_RELEASES.md`;
+- ссылка на карту стабильных релизов в `README.md`;
+- актуальный stable tag обновлён до `scanner-safe-release-notes-linked-v1`;
+- GitHub синхронизирован;
+- рабочее дерево после проверки чистое.
+
+Ключевые файлы:
+
+```text
+README.md
+SAFE_RELEASES.md
+```
+
+Проверка:
+
+```bash
+cd /root/binance-spot-trading-bot
+grep -n "SAFE_RELEASES\|scanner-safe-release-notes-linked-v1" README.md SAFE_RELEASES.md
+git status
+git tag --list
+git log --oneline -5
+```
+
+Ожидаемый результат:
+
+```text
+nothing to commit, working tree clean
+scanner-safe-release-notes-linked-v1
+4fda850
+```
+
+---
+
 ## 3. Полная ручная проверка актуальной стабильной сборки
 
 Перед любыми новыми изменениями выполните:
@@ -521,7 +564,7 @@ git push origin main
 Продолжать разработку лучше от:
 
 ```text
-scanner-safe-gate-count-fix-v1
+scanner-safe-release-notes-linked-v1
 ```
 
 Причина:
@@ -530,11 +573,13 @@ scanner-safe-gate-count-fix-v1
 - есть документация;
 - есть blocked risk report;
 - исправлен safety gate decision count;
+- добавлена карта стабильных релизов `SAFE_RELEASES.md`;
+- README.md содержит ссылку на карту стабильных релизов;
 - GitHub синхронизирован;
 - рабочее дерево было чистым после последней проверки.
 
 Следующий разумный этап после этого файла:
 
 ```text
-Добавить SAFE_RELEASES.md в README.md как ссылку на карту стабильных релизов.
+Продолжать разработку от scanner-safe-release-notes-linked-v1 и перед каждым изменением проверять git status, safety gate и cron-wrapper.
 ```
