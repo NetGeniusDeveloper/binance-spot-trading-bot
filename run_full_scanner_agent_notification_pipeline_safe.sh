@@ -33,6 +33,7 @@ python -m py_compile \
   telegram_real_messages_analyze.py \
   telegram_real_market_scanner.py \
   telegram_channel_quality_report.py \
+  telegram_channel_config_recommendations.py \
   social_signal_engine.py \
   ticker_extractor.py \
   scanner_market_data.py \
@@ -59,6 +60,7 @@ echo "2. BASH SYNTAX CHECK"
 echo "======================================"
 bash -n run_telegram_real_market_scanner_safe.sh
 bash -n run_telegram_channel_quality_report.sh
+bash -n run_telegram_channel_config_recommendations.sh
 bash -n run_scanner_agent_decision_report.sh
 bash -n run_scanner_agent_notification_report.sh
 bash -n run_scanner_agent_telegram_message_preview.sh
@@ -80,25 +82,31 @@ echo "======================================"
 
 echo
 echo "======================================"
-echo "5. SCANNER AGENT DECISION REPORT SAFE RUN"
+echo "5. TELEGRAM CHANNEL CONFIG RECOMMENDATIONS SAFE RUN"
+echo "======================================"
+./run_telegram_channel_config_recommendations.sh
+
+echo
+echo "======================================"
+echo "6. SCANNER AGENT DECISION REPORT SAFE RUN"
 echo "======================================"
 ./run_scanner_agent_decision_report.sh
 
 echo
 echo "======================================"
-echo "6. SCANNER AGENT NOTIFICATION REPORT SAFE RUN"
+echo "7. SCANNER AGENT NOTIFICATION REPORT SAFE RUN"
 echo "======================================"
 ./run_scanner_agent_notification_report.sh
 
 echo
 echo "======================================"
-echo "7. SCANNER AGENT TELEGRAM MESSAGE PREVIEW SAFE RUN"
+echo "8. SCANNER AGENT TELEGRAM MESSAGE PREVIEW SAFE RUN"
 echo "======================================"
 ./run_scanner_agent_telegram_message_preview.sh
 
 echo
 echo "======================================"
-echo "8. DECISION COUNT CHECK BEFORE TELEGRAM SENDER"
+echo "9. DECISION COUNT CHECK BEFORE TELEGRAM SENDER"
 echo "======================================"
 
 TOTAL_DECISIONS=$(python - <<'PY'
@@ -144,20 +152,20 @@ else
   echo "[OK] Running Telegram sender safe runner."
   echo
   echo "======================================"
-  echo "9. SCANNER AGENT TELEGRAM SENDER SAFE RUN"
+  echo "10. SCANNER AGENT TELEGRAM SENDER SAFE RUN"
   echo "======================================"
   ./run_scanner_agent_telegram_sender_safe.sh
 fi
 
 echo
 echo "======================================"
-echo "10. SCANNER AGENT PIPELINE SUMMARY"
+echo "11. SCANNER AGENT PIPELINE SUMMARY"
 echo "======================================"
 python scanner_agent_pipeline_summary.py
 
 echo
 echo "======================================"
-echo "11. FINAL PIPELINE SUMMARY TXT"
+echo "12. FINAL PIPELINE SUMMARY TXT"
 echo "======================================"
 
 if [ -f "reports/scanner_agent_pipeline_summary.txt" ]; then
@@ -168,7 +176,7 @@ fi
 
 echo
 echo "======================================"
-echo "12. FINAL CHANNEL QUALITY TXT"
+echo "13. FINAL CHANNEL QUALITY TXT"
 echo "======================================"
 
 if [ -f "reports/telegram_channel_quality_report.txt" ]; then
@@ -179,13 +187,26 @@ fi
 
 echo
 echo "======================================"
-echo "13. FINAL GENERATED / USED FILES"
+echo "14. FINAL CHANNEL CONFIG RECOMMENDATIONS TXT"
+echo "======================================"
+
+if [ -f "reports/telegram_channel_config_recommendations.txt" ]; then
+  cat reports/telegram_channel_config_recommendations.txt
+else
+  echo "[WARN] Missing: reports/telegram_channel_config_recommendations.txt"
+fi
+
+echo
+echo "======================================"
+echo "15. FINAL GENERATED / USED FILES"
 echo "======================================"
 echo "Telegram preview JSON: reports/telegram_real_messages_preview.json"
 echo "Telegram social analysis JSON: reports/telegram_real_social_signals.json"
 echo "Telegram market rated JSON: reports/telegram_real_market_rated_signals.json"
 echo "Telegram channel quality JSON: reports/telegram_channel_quality_report.json"
 echo "Telegram channel quality TXT: reports/telegram_channel_quality_report.txt"
+echo "Telegram channel config recommendations JSON: reports/telegram_channel_config_recommendations.json"
+echo "Telegram channel config recommendations TXT: reports/telegram_channel_config_recommendations.txt"
 echo "Markdown report: reports/social_scanner_demo_report.md"
 echo "Agent export JSON: reports/scanner_agent_export.json"
 echo "Agent decision JSON: reports/scanner_agent_decision.json"
@@ -199,13 +220,14 @@ echo "SQLite DB: data/social_scanner.db"
 
 echo
 echo "======================================"
-echo "14. FINAL SAFETY RESULT"
+echo "16. FINAL SAFETY RESULT"
 echo "======================================"
 echo "[OK] This full pipeline did not create orders"
 echo "[OK] This full pipeline did not run trading bot"
 echo "[OK] Binance was used only for public market metrics"
 echo "[OK] Telegram channel reading was limited to the configured analytical scanner"
 echo "[OK] Telegram channel quality report used saved preview JSON only"
+echo "[OK] Telegram channel config recommendations used saved quality JSON only"
 echo "[OK] Telegram notification sending is controlled only by SCANNER_TELEGRAM_SEND_ENABLED"
 echo "[OK] Default safe value is SCANNER_TELEGRAM_SEND_ENABLED=false"
 echo "[OK] Telegram sender is skipped when total_decisions=0"

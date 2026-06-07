@@ -14,6 +14,8 @@ SUMMARY_TXT="reports/scanner_agent_pipeline_summary.txt"
 SUMMARY_JSON="reports/scanner_agent_pipeline_summary.json"
 QUALITY_TXT="reports/telegram_channel_quality_report.txt"
 QUALITY_JSON="reports/telegram_channel_quality_report.json"
+RECOMMENDATIONS_TXT="reports/telegram_channel_config_recommendations.txt"
+RECOMMENDATIONS_JSON="reports/telegram_channel_config_recommendations.json"
 
 echo "======================================"
 echo "DAILY SCANNER AGENT SAFE RUN"
@@ -68,7 +70,18 @@ fi
 
 echo
 echo "======================================"
-echo "5. QUICK JSON STATUS"
+echo "5. CHANNEL CONFIG RECOMMENDATIONS"
+echo "======================================"
+
+if [ -f "${RECOMMENDATIONS_TXT}" ]; then
+  cat "${RECOMMENDATIONS_TXT}"
+else
+  echo "[WARN] Missing channel config recommendations TXT: ${RECOMMENDATIONS_TXT}"
+fi
+
+echo
+echo "======================================"
+echo "6. QUICK JSON STATUS"
 echo "======================================"
 
 if [ -f "${SUMMARY_JSON}" ]; then
@@ -104,7 +117,7 @@ fi
 
 echo
 echo "======================================"
-echo "6. QUICK CHANNEL QUALITY STATUS"
+echo "7. QUICK CHANNEL QUALITY STATUS"
 echo "======================================"
 
 if [ -f "${QUALITY_JSON}" ]; then
@@ -159,13 +172,68 @@ fi
 
 echo
 echo "======================================"
-echo "7. SAFETY RESULT"
+echo "8. QUICK CHANNEL CONFIG RECOMMENDATIONS STATUS"
+echo "======================================"
+
+if [ -f "${RECOMMENDATIONS_JSON}" ]; then
+  python - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("reports/telegram_channel_config_recommendations.json")
+
+try:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+except Exception as ex:
+    print("[WARN] Cannot read channel config recommendations JSON:", ex)
+    raise SystemExit
+
+print("Safe to continue:", payload.get("safe_to_continue"))
+print("scanner_real_channels.py modified:", payload.get("scanner_real_channels_modified"))
+print("Current real channels:", payload.get("current_real_channels"))
+print("Keep:", payload.get("keep"))
+print("Watch:", payload.get("watch"))
+print("Disable:", payload.get("disable"))
+
+blockers = payload.get("blockers", [])
+warnings = payload.get("warnings", [])
+
+print("Blockers:", ", ".join(blockers) if blockers else "none")
+print("Warnings:", ", ".join(warnings) if warnings else "none")
+
+recommendations = payload.get("recommendations", [])
+
+if recommendations:
+    print()
+    print("Config recommendations:")
+
+    for item in recommendations:
+        print(
+            "- @{username}: final={final} enabled={enabled} "
+            "weight={weight} authority={authority} quality={quality}".format(
+                username=item.get("username"),
+                final=item.get("final_recommendation"),
+                enabled=item.get("recommended_enabled"),
+                weight=item.get("recommended_weight"),
+                authority=item.get("recommended_authority_score"),
+                quality=item.get("quality_score"),
+            )
+        )
+PY
+else
+  echo "[WARN] Missing channel config recommendations JSON: ${RECOMMENDATIONS_JSON}"
+fi
+
+echo
+echo "======================================"
+echo "9. SAFETY RESULT"
 echo "======================================"
 echo "[OK] This daily runner did not create orders"
 echo "[OK] This daily runner did not start trading bot"
 echo "[OK] Full pipeline log was saved locally"
 echo "[OK] Final pipeline summary was printed for manual review"
 echo "[OK] Channel quality summary was printed for manual review"
+echo "[OK] Channel config recommendations were printed for manual review"
 echo "[OK] Telegram sending still depends on safety flags"
 
 echo
