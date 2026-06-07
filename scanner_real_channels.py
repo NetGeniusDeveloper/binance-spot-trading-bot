@@ -3,7 +3,6 @@ from typing import Any, Dict, List
 
 # Real public Telegram channels for analytical social scanner.
 #
-# Keep this list empty by default to avoid accidental Telegram requests.
 # Add only public channels that you are allowed to read.
 #
 # Safety:
@@ -12,15 +11,15 @@ from typing import Any, Dict, List
 # - no trading bot launch;
 # - no private-channel bypassing.
 #
-# Example:
-# REAL_CHANNELS = [
-#     {
-#         "username": "some_public_channel",
-#         "title": "Some Public Channel",
-#         "enabled": True,
-#         "weight": 1.0,
-#         "authority_score": 70,
-#     },
-# ]
+# Channel username is taken from:
+# https://t.me/test_binance_channell
 
-REAL_CHANNELS: List[Dict[str, Any]] = []
+REAL_CHANNELS: List[Dict[str, Any]] = [
+    {
+        "username": "test_binance_channell",
+        "title": "Test Binance Channel",
+        "enabled": True,
+        "weight": 1.0,
+        "authority_score": 60,
+    },
+]
