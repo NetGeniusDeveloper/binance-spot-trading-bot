@@ -1,148 +1,204 @@
-# Binance Spot Trading Bot / Crypto Scanner Agent
+# Binance Spot Trading Bot — безопасный аналитический crypto scanner
 
-Русскоязычная документация проекта безопасного аналитического крипто-сканера.
+Документация на русском языке для проекта `binance-spot-trading-bot`.
 
-Проект предназначен для анализа криптовалютных сигналов, публичных Telegram-каналов и рыночных данных в безопасном режиме. Текущая стабильная версия делает аналитический прогон, формирует отчёты, может отправлять аналитическое Telegram-уведомление только через ручные флаги безопасности и не создаёт торговые ордера.
-
-> Важно: текущая стабильная сборка является аналитической. Она не запускает торгового бота, не создаёт Binance-ордера и не включает автоматическую торговлю.
+Проект сейчас используется как безопасный аналитический сканер крипторынка и публичных Telegram-каналов. Главный принцип: **аналитика разрешена, автоматическая торговля и создание ордеров запрещены**.
 
 ---
 
-## Текущая стабильная версия
+## 1. Текущее стабильное состояние
 
-Стабильный тег:
+Актуальная стабильная сборка с безопасным cron, Telegram-уведомлениями, safety gate и blocked risk отчётами:
 
 ```bash
+scanner-safe-risk-reports-v1
+```
+
+Предыдущие стабильные теги:
+
+```bash
+scanner-safe-cron-v1
 scanner-safe-telegram-v1
 ```
 
-Текущий основной безопасный cron-wrapper:
+Основной репозиторий:
 
 ```bash
-run_daily_scanner_agent_cron_safe.sh
+https://github.com/NetGeniusDeveloper/binance-spot-trading-bot
 ```
 
-Основной ежедневный runner:
+Рабочая директория в Termux/Ubuntu:
+
+```bash
+/root/binance-spot-trading-bot
+```
+
+---
+
+## 2. Главное правило безопасности
+
+Проект работает только в аналитическом режиме.
+
+Скрипты проекта не должны:
+
+- создавать Binance-ордера;
+- запускать торгового бота;
+- включать автоматическую торговлю;
+- обходить Telegram safety-флаги;
+- автоматически менять конфигурацию каналов без ручной проверки.
+
+Telegram-уведомление является только аналитическим сообщением. Это не торговый сигнал и не команда на вход.
+
+---
+
+## 3. Основные безопасные команды
+
+Перейти в проект:
+
+```bash
+cd /root/binance-spot-trading-bot
+source .venv/bin/activate
+```
+
+Проверить состояние Git:
+
+```bash
+git status
+git log --oneline -5
+```
+
+Запустить ежедневный безопасный pipeline вручную:
+
+```bash
+./run_daily_scanner_agent_safe.sh
+```
+
+Запустить cron-wrapper вручную:
+
+```bash
+./run_daily_scanner_agent_cron_safe.sh
+```
+
+Проверить safety gate:
+
+```bash
+cat reports/scanner_agent_safety_gate_report.txt
+cat reports/scanner_agent_safety_gate_report.json
+```
+
+---
+
+## 4. Основные файлы проекта
+
+### Главные runner-скрипты
 
 ```bash
 run_daily_scanner_agent_safe.sh
-```
-
-Полный безопасный pipeline:
-
-```bash
+run_daily_scanner_agent_cron_safe.sh
 run_full_scanner_agent_notification_pipeline_safe.sh
 ```
 
-Safety gate отчёты:
+### Telegram и scanner pipeline
+
+```bash
+telegram_real_messages_preview.py
+telegram_real_messages_analyze.py
+telegram_real_market_scanner.py
+telegram_channel_quality_report.py
+telegram_channel_config_recommendations.py
+scanner_agent_export.py
+scanner_agent_decision.py
+scanner_agent_decision_report.py
+scanner_agent_blocked_risk_report.py
+scanner_agent_notification_report.py
+scanner_agent_telegram_message_preview.py
+scanner_agent_telegram_sender_dry_run.py
+scanner_agent_telegram_sender.py
+scanner_agent_telegram_sender_audit_report.py
+scanner_agent_pipeline_summary.py
+scanner_agent_safety_gate_report.py
+```
+
+### Документация
+
+```bash
+README.md
+CRON_SETUP.md
+```
+
+### Requirements
+
+```bash
+requirements.txt
+requirements-fixed.txt
+requirements-py313.txt
+```
+
+---
+
+## 5. Основные отчёты
+
+Pipeline создаёт локальные отчёты в папке:
+
+```bash
+reports/
+```
+
+Главные отчёты:
+
+```bash
+reports/scanner_agent_pipeline_summary.txt
+reports/scanner_agent_pipeline_summary.json
+
+reports/scanner_agent_safety_gate_report.txt
+reports/scanner_agent_safety_gate_report.json
+
+reports/scanner_agent_blocked_risk_report.txt
+reports/scanner_agent_blocked_risk_report.json
+
+reports/scanner_agent_telegram_sender_audit_report.txt
+reports/scanner_agent_telegram_sender_audit_report.json
+
+reports/telegram_channel_quality_report.txt
+reports/telegram_channel_quality_report.json
+
+reports/telegram_channel_config_recommendations.txt
+reports/telegram_channel_config_recommendations.json
+```
+
+---
+
+## 6. Safety gate
+
+Safety gate — финальная проверка безопасного состояния pipeline.
+
+Файлы:
 
 ```bash
 reports/scanner_agent_safety_gate_report.json
 reports/scanner_agent_safety_gate_report.txt
 ```
 
-Cron-лог:
+Скрипт:
 
 ```bash
-reports/daily_scanner_agent_cron_safe.log
+python scanner_agent_safety_gate_report.py
 ```
 
-Подробная инструкция по настройке cron находится здесь:
-
-```bash
-CRON_SETUP.md
-```
-
----
-
-## Что уже реализовано
-
-На текущей стадии проект умеет:
-
-- читать публичные Telegram-каналы, указанные в конфигурации;
-- собирать preview сообщений;
-- извлекать криптовалютные тикеры;
-- анализировать социальные сигналы;
-- учитывать рыночные данные;
-- формировать рейтинг сигналов;
-- сохранять результаты в JSON, TXT, Markdown и SQLite;
-- строить agent export;
-- принимать аналитическое решение по сигналам;
-- формировать текст аналитического уведомления;
-- выполнять dry-run Telegram sender;
-- отправлять Telegram-уведомление только при включённых ручных флагах;
-- блокировать повторную отправку одинаковых уведомлений по hash;
-- корректно обрабатывать timeout Telegram-доставки как неизвестный статус;
-- формировать audit report отправителя;
-- формировать финальный safety gate report;
-- запускаться через безопасный cron-wrapper.
-
----
-
-## Главные файлы запуска
-
-### Ежедневный безопасный запуск вручную
-
-```bash
-./run_daily_scanner_agent_safe.sh
-```
-
-Этот runner:
-
-1. запускает полный аналитический pipeline;
-2. формирует отчёты;
-3. запускает audit Telegram sender;
-4. запускает safety gate;
-5. печатает итоговый статус.
-
-### Безопасный cron-wrapper
-
-```bash
-./run_daily_scanner_agent_cron_safe.sh
-```
-
-Этот wrapper предназначен для запуска через cron. Он:
-
-1. фиксирует git status и последние коммиты;
-2. запускает ежедневный безопасный runner;
-3. проверяет `reports/scanner_agent_safety_gate_report.json`;
-4. завершает работу успешно только при безопасном состоянии;
-5. пишет лог в `reports/daily_scanner_agent_cron_safe.log`.
-
----
-
-## Модель безопасности
-
-Проект должен оставаться в режиме аналитики.
-
-Запрещено для безопасной ветки:
-
-- создавать Binance-ордера;
-- запускать торгового бота;
-- включать автоматическую торговлю;
-- обходить Telegram safety flags;
-- автоматически менять конфигурацию каналов без ручной проверки.
-
-Telegram-отправка контролируется только переменными окружения и логикой sender safety.
-
----
-
-## Безопасные статусы safety gate
-
-Safety gate считает безопасными состояния:
+Безопасные состояния:
 
 ```text
 safe
 duplicate_blocked
 ```
 
-Состояние, требующее ручной проверки, но не означающее опасного действия:
+Состояние, которое не считается опасным, но требует ручной проверки:
 
 ```text
 review_required
 ```
 
-Небезопасные или блокирующие состояния:
+Опасные или блокирующие состояния:
 
 ```text
 failed
@@ -150,74 +206,45 @@ blocked
 unknown
 ```
 
----
-
-## Установка проекта
-
-### 1. Перейти в директорию проекта
-
-```bash
-cd /root/binance-spot-trading-bot
-```
-
-Проверить, что вы находитесь в правильном месте:
-
-```bash
-pwd
-git status
-git log --oneline -5
-```
-
-Ожидаемый путь:
+Ожидаемый успешный результат:
 
 ```text
-/root/binance-spot-trading-bot
-```
-
-Ожидаемое состояние после синхронизации:
-
-```text
-nothing to commit, working tree clean
-```
-
-### 2. Создать и активировать виртуальное окружение
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-```
-
-### 3. Установить зависимости
-
-Обычная установка:
-
-```bash
-pip install -r requirements.txt
-```
-
-Если используется Python 3.13 и есть отдельный файл зависимостей:
-
-```bash
-pip install -r requirements-py313.txt
-```
-
-Если используется зафиксированный набор зависимостей:
-
-```bash
-pip install -r requirements-fixed.txt
+Gate status: safe
+Safety gate OK: True
+Review required: False
+Blockers: none
+Warnings: none
 ```
 
 ---
 
-## Настройка `.env`
+## 7. Telegram safety-флаги
 
-Откройте файл:
+Telegram-отправка управляется только флагами окружения и безопасной логикой sender-а.
+
+Рекомендуемый безопасный режим для unattended cron:
 
 ```bash
-nano .env
+SCANNER_TELEGRAM_SEND_ENABLED=false
+SCANNER_TELEGRAM_MANUAL_CONFIRM=false
 ```
 
-Пример структуры:
+Контролируемая аналитическая отправка после ручного решения:
+
+```bash
+SCANNER_TELEGRAM_SEND_ENABLED=true
+SCANNER_TELEGRAM_MANUAL_CONFIRM=true
+```
+
+Даже при включённых Telegram-флагах проект не должен создавать ордера и не должен запускать торгового бота.
+
+---
+
+## 8. .env
+
+Файл `.env` должен храниться только локально и не попадать в GitHub.
+
+Пример полей:
 
 ```bash
 BINANCE_API_KEY=""
@@ -236,331 +263,452 @@ SCANNER_TELEGRAM_SEND_ENABLED=false
 SCANNER_TELEGRAM_MANUAL_CONFIRM=false
 ```
 
-### Рекомендуемый безопасный режим для cron
+Проверка:
 
 ```bash
-SCANNER_TELEGRAM_SEND_ENABLED=false
-SCANNER_TELEGRAM_MANUAL_CONFIRM=false
+cat .env
 ```
 
-### Контролируемая аналитическая Telegram-отправка
+Не публикуйте реальные ключи, токены и session-файлы.
 
-Использовать только после ручного решения:
+---
+
+## 9. .gitignore
+
+В проекте должен быть `.gitignore`, который не даёт случайно отправить в GitHub:
+
+- `.env`;
+- `__pycache__/`;
+- `*.session`;
+- локальные отчёты `reports/*.json`;
+- локальные отчёты `reports/*.txt`;
+- логи;
+- локальные базы данных;
+- временные patch-файлы.
+
+Проверка:
+
+```bash
+git check-ignore -v .env
+git check-ignore -v crypto_scanner_session.session
+git check-ignore -v reports/scanner_agent_safety_gate_report.json
+git check-ignore -v reports/scanner_agent_safety_gate_report.txt
+git check-ignore -v reports/daily_scanner_agent_cron_safe.log
+git check-ignore -v data/social_scanner.db
+```
+
+Проверка, что опасные runtime-файлы не отслеживаются Git:
+
+```bash
+git ls-files | grep -E '^\.env$|__pycache__|\.session$|^reports/.*\.(json|txt|log)$|^data/social_scanner\.db$' || echo "[OK] опасные файлы не отслеживаются Git"
+```
+
+---
+
+## 10. Safe daily runner
+
+Главный ручной безопасный запуск:
+
+```bash
+./run_daily_scanner_agent_safe.sh
+```
+
+Что делает runner:
+
+1. проверяет bash-синтаксис полного pipeline;
+2. запускает полный безопасный scanner pipeline;
+3. создаёт Telegram sender audit;
+4. печатает итоговый pipeline summary;
+5. создаёт и печатает blocked risk report;
+6. печатает channel quality report;
+7. печатает channel config recommendations;
+8. запускает safety gate;
+9. показывает итоговый безопасный статус.
+
+Проверка:
+
+```bash
+bash -n run_daily_scanner_agent_safe.sh
+./run_daily_scanner_agent_safe.sh
+cat reports/scanner_agent_safety_gate_report.txt
+```
+
+---
+
+## 11. Full scanner notification pipeline
+
+Полный безопасный pipeline:
+
+```bash
+./run_full_scanner_agent_notification_pipeline_safe.sh
+```
+
+Он выполняет:
+
+- compile-check Python-файлов;
+- bash-check runner-файлов;
+- сбор публичных Telegram-сообщений;
+- анализ Telegram-сообщений;
+- market scanner;
+- channel quality report;
+- channel config recommendations;
+- decision layer;
+- decision report;
+- blocked risk report;
+- notification report;
+- Telegram message preview;
+- dry-run sender;
+- controlled Telegram sender;
+- pipeline summary.
+
+Проверка:
+
+```bash
+bash -n run_full_scanner_agent_notification_pipeline_safe.sh
+./run_full_scanner_agent_notification_pipeline_safe.sh
+```
+
+---
+
+## 12. Отчёт blocked risk
+
+В проект добавлен отдельный безопасный отчёт по сигналам, которые были заблокированы риск-фильтром.
+
+Файлы:
+
+```bash
+reports/scanner_agent_blocked_risk_report.txt
+reports/scanner_agent_blocked_risk_report.json
+```
+
+Скрипт:
+
+```bash
+python scanner_agent_blocked_risk_report.py
+```
+
+Отчёт показывает:
+
+- какие пары были заблокированы;
+- источник сигнала;
+- уровень риска;
+- итоговую оценку;
+- market score;
+- telegram score;
+- risk adjustment;
+- риск-флаги;
+- рыночное подтверждение;
+- наличие или отсутствие ретеста;
+- понятные причины блокировки;
+- manager note;
+- recommended next step.
+
+Пример проверки:
+
+```bash
+cd /root/binance-spot-trading-bot
+source .venv/bin/activate
+
+python -m py_compile scanner_agent_blocked_risk_report.py
+python scanner_agent_blocked_risk_report.py
+
+cat reports/scanner_agent_blocked_risk_report.txt
+cat reports/scanner_agent_blocked_risk_report.json
+```
+
+Ожидаемый безопасный результат:
+
+```text
+Safe to continue: True
+Blockers: none
+Warnings: none
+[OK] This report did not create orders.
+[OK] This report did not start trading bot.
+[OK] This report did not call Binance API.
+```
+
+Важно:
+
+```text
+blocked_risk означает: не использовать сигнал для входа.
+```
+
+Blocked risk report является только аналитическим. Он не создаёт ордера, не запускает торгового бота, не отправляет Telegram-сообщения и не вызывает Binance API.
+
+---
+
+## 13. Decision layer
+
+Decision layer читает:
+
+```bash
+reports/scanner_agent_export.json
+```
+
+и создаёт:
+
+```bash
+reports/scanner_agent_decision.json
+```
+
+Скрипт:
+
+```bash
+python scanner_agent_decision.py
+```
+
+Возможные решения:
+
+```text
+candidate
+wait_confirmation
+wait_retest
+observe
+blocked_risk
+ignore
+```
+
+Сейчас безопасная логика усиливает риск-фильтр. Слабые сигналы, отсутствие подтверждения, отсутствие ретеста, слабое Telegram-подтверждение и опасные FOMO/pump-флаги приводят к `blocked_risk`, `ignore` или наблюдательному статусу.
+
+---
+
+## 14. Notification report и Telegram preview
+
+Notification report:
+
+```bash
+python scanner_agent_notification_report.py
+cat reports/scanner_agent_notification_report.txt
+```
+
+Telegram preview:
+
+```bash
+python scanner_agent_telegram_message_preview.py
+cat reports/scanner_agent_telegram_message_preview.txt
+```
+
+Эти скрипты:
+
+- не создают ордера;
+- не запускают бота;
+- не вызывают Binance API;
+- не читают Telegram;
+- не отправляют Telegram-сообщения.
+
+Telegram preview только формирует локальный текст будущего аналитического уведомления.
+
+---
+
+## 15. Telegram sender dry-run
+
+Dry-run sender:
+
+```bash
+./run_scanner_agent_telegram_sender_dry_run.sh
+```
+
+Он проверяет:
+
+- наличие preview-файла;
+- длину сообщения;
+- наличие Telegram token;
+- наличие chat id;
+- safety-флаги;
+- блокеры;
+- предупреждения.
+
+Dry-run не отправляет Telegram-сообщение.
+
+---
+
+## 16. Telegram sender safe-run
+
+Safe sender:
+
+```bash
+./run_scanner_agent_telegram_sender_safe.sh
+```
+
+Реальная Telegram-отправка возможна только если одновременно включены два флага:
 
 ```bash
 SCANNER_TELEGRAM_SEND_ENABLED=true
 SCANNER_TELEGRAM_MANUAL_CONFIRM=true
 ```
 
-Не включайте никакие флаги исполнения ордеров.
+Sender всё равно не создаёт ордера, не запускает торгового бота и не вызывает Binance API.
 
 ---
 
-## Проверка проекта перед запуском
+## 17. Cron
 
-```bash
-cd /root/binance-spot-trading-bot
-source .venv/bin/activate
-
-python -m py_compile   credentials.py   scanner_agent_telegram_sender.py   scanner_agent_telegram_message_preview.py   scanner_agent_telegram_sender_dry_run.py   scanner_agent_telegram_sender_audit_report.py   scanner_agent_pipeline_summary.py   scanner_agent_safety_gate_report.py
-
-bash -n run_daily_scanner_agent_safe.sh
-bash -n run_daily_scanner_agent_cron_safe.sh
-bash -n run_full_scanner_agent_notification_pipeline_safe.sh
-```
-
----
-
-## Ручной безопасный запуск
-
-```bash
-cd /root/binance-spot-trading-bot
-source .venv/bin/activate
-
-./run_daily_scanner_agent_safe.sh
-```
-
-Проверить итоговые отчёты:
-
-```bash
-cat reports/scanner_agent_safety_gate_report.txt
-cat reports/scanner_agent_pipeline_summary.txt
-cat reports/scanner_agent_telegram_sender_audit_report.txt
-```
-
-Быстрый JSON-статус:
-
-```bash
-python - <<'PY'
-import json
-from pathlib import Path
-
-path = Path("reports/scanner_agent_safety_gate_report.json")
-payload = json.loads(path.read_text(encoding="utf-8"))
-
-print("Gate status:", payload.get("gate_status"))
-print("Safety gate OK:", payload.get("safety_gate_ok"))
-print("Review required:", payload.get("review_required"))
-print("Blockers:", ", ".join(payload.get("blockers", [])) or "none")
-print("Warnings:", ", ".join(payload.get("warnings", [])) or "none")
-PY
-```
-
----
-
-## Cron-настройка
-
-Подробная инструкция находится в отдельном файле:
+Подробная инструкция по cron находится в отдельном файле:
 
 ```bash
 CRON_SETUP.md
 ```
 
-Краткая версия:
+Открыть:
 
 ```bash
-crontab -e
+cat CRON_SETUP.md
 ```
 
-Запуск один раз в день в 09:00 серверного времени:
+Ручная проверка cron-wrapper:
+
+```bash
+bash -n run_daily_scanner_agent_cron_safe.sh
+./run_daily_scanner_agent_cron_safe.sh
+tail -n 160 reports/daily_scanner_agent_cron_safe.log
+cat reports/scanner_agent_safety_gate_report.txt
+```
+
+Пример cron-задания на 09:00:
 
 ```cron
 0 9 * * * /root/binance-spot-trading-bot/run_daily_scanner_agent_cron_safe.sh
 ```
 
-Запуск каждые 6 часов:
-
-```cron
-0 */6 * * * /root/binance-spot-trading-bot/run_daily_scanner_agent_cron_safe.sh
-```
-
-Проверить установленные cron-задачи:
-
-```bash
-crontab -l
-```
-
-Проверить результат после выполнения:
-
-```bash
-cd /root/binance-spot-trading-bot
-
-tail -n 200 reports/daily_scanner_agent_cron_safe.log
-cat reports/scanner_agent_safety_gate_report.txt
-```
-
 ---
 
-## Основные отчёты
-
-После запуска создаются или обновляются:
-
-```bash
-reports/telegram_real_messages_preview.json
-reports/telegram_real_social_signals.json
-reports/telegram_real_market_rated_signals.json
-reports/telegram_channel_quality_report.json
-reports/telegram_channel_quality_report.txt
-reports/telegram_channel_config_recommendations.json
-reports/telegram_channel_config_recommendations.txt
-reports/social_scanner_demo_report.md
-reports/scanner_agent_export.json
-reports/scanner_agent_decision.json
-reports/scanner_agent_notification_report.txt
-reports/scanner_agent_telegram_message_preview.txt
-reports/scanner_agent_telegram_sender_dry_run.json
-reports/scanner_agent_telegram_sender_result.json
-reports/scanner_agent_telegram_sender_audit_report.json
-reports/scanner_agent_telegram_sender_audit_report.txt
-reports/scanner_agent_pipeline_summary.json
-reports/scanner_agent_pipeline_summary.txt
-reports/scanner_agent_safety_gate_report.json
-reports/scanner_agent_safety_gate_report.txt
-reports/daily_scanner_agent_cron_safe.log
-```
-
-SQLite база:
-
-```bash
-data/social_scanner.db
-```
-
----
-
-## Проверка Telegram sender
-
-Dry-run:
-
-```bash
-./run_scanner_agent_telegram_sender_dry_run.sh
-```
-
-Полный безопасный sender runner:
-
-```bash
-./run_scanner_agent_telegram_sender_safe.sh
-```
-
-Проверить результат:
-
-```bash
-cat reports/scanner_agent_telegram_sender_result.json
-cat reports/scanner_agent_telegram_sender_audit_report.txt
-```
-
----
-
-## Защита от дублей Telegram-уведомлений
-
-Проект сохраняет hash последнего отправленного аналитического уведомления:
-
-```bash
-reports/scanner_agent_last_sent_hash.json
-```
-
-Если следующий текст уведомления совпадает с предыдущим после нормализации времени создания, повторная отправка блокируется.
-
-Безопасный статус:
-
-```text
-duplicate_blocked
-```
-
-Это означает, что повторное одинаковое уведомление не отправлено, и это считается безопасным состоянием.
-
----
-
-## Обработка Telegram timeout
-
-Если Telegram API вернул timeout, доставка может быть неизвестной. Проект помечает это состояние отдельно.
-
-В таком случае возможен статус:
-
-```text
-review_required
-```
-
-Нужно вручную проверить Telegram-чат, чтобы понять, пришло ли уведомление, и только потом запускать sender повторно.
-
----
-
-## Каналы Telegram
-
-Конфигурация реальных каналов:
-
-```bash
-scanner_real_channels.py
-```
-
-Отчёт качества каналов:
-
-```bash
-reports/telegram_channel_quality_report.txt
-reports/telegram_channel_quality_report.json
-```
-
-Рекомендации по конфигурации:
-
-```bash
-reports/telegram_channel_config_recommendations.txt
-reports/telegram_channel_config_recommendations.json
-```
-
-Важно: рекомендации не должны автоматически менять `scanner_real_channels.py` без ручной проверки.
-
----
-
-## Экстренная безопасная остановка
-
-Отключите Telegram-отправку в `.env`:
-
-```bash
-SCANNER_TELEGRAM_SEND_ENABLED=false
-SCANNER_TELEGRAM_MANUAL_CONFIRM=false
-```
-
-После этого проверьте:
+## 18. Проверка после установки или обновления
 
 ```bash
 cd /root/binance-spot-trading-bot
 source .venv/bin/activate
 
-./run_daily_scanner_agent_cron_safe.sh
-tail -n 160 reports/daily_scanner_agent_cron_safe.log
+git status
+git log --oneline -5
+
+python -m py_compile \
+  scanner_agent_decision.py \
+  scanner_agent_blocked_risk_report.py \
+  scanner_agent_pipeline_summary.py \
+  scanner_agent_safety_gate_report.py \
+  scanner_agent_telegram_sender_audit_report.py
+
+bash -n run_daily_scanner_agent_safe.sh
+bash -n run_full_scanner_agent_notification_pipeline_safe.sh
+bash -n run_daily_scanner_agent_cron_safe.sh
+
+./run_daily_scanner_agent_safe.sh
+
+cat reports/scanner_agent_blocked_risk_report.txt
+cat reports/scanner_agent_pipeline_summary.txt
+cat reports/scanner_agent_safety_gate_report.txt
 ```
 
 ---
 
-## Git workflow
+## 19. Ожидаемое безопасное состояние
 
-Перед изменениями:
+Успешный pipeline должен показывать:
+
+```text
+Safe pipeline: True
+Safety gate OK: True
+Review required: False
+Blockers: none
+Warnings: none
+Orders enabled: False
+Trading enabled: False
+Binance orders created: False
+```
+
+Допустимый blocked risk результат:
+
+```text
+Blocked risk items: 1
+Safe to continue: True
+Blockers: none
+Warnings: none
+```
+
+Это безопасно, потому что blocked risk означает запрет входа.
+
+---
+
+## 20. Git workflow
+
+Проверить состояние:
 
 ```bash
-cd /root/binance-spot-trading-bot
 git status
-git pull origin main
 git log --oneline -5
 ```
 
-После изменения файлов:
+Добавить изменения:
 
 ```bash
-git status
-git add README.md
-git commit -m "Update Russian README with cron setup link"
+git add .
+```
+
+Коммит:
+
+```bash
+git commit -m "описание изменения"
+```
+
+Отправить в GitHub:
+
+```bash
 git push origin main
 ```
 
-Проверка финального состояния:
+Проверить итог:
 
 ```bash
 git status
 git log --oneline -5
 ```
 
-Ожидаемый результат:
-
-```text
-nothing to commit, working tree clean
-```
-
 ---
 
-## Быстрое восстановление стабильной версии
+## 21. Установка готовых README.md и CRON_SETUP.md из Download
 
-Стабильная версия отмечена тегом:
+Если файлы скачаны в Android Download, заменить их в проекте можно так:
 
 ```bash
-scanner-safe-telegram-v1
+cd /root/binance-spot-trading-bot
+
+cp README.md README.md.before_update.backup
+cp CRON_SETUP.md CRON_SETUP.md.before_update.backup
+
+mv ./../../storage/emulated/0/Download/README.md README.md
+mv ./../../storage/emulated/0/Download/CRON_SETUP.md CRON_SETUP.md
+
+git status
 ```
 
-Проверить теги:
+Проверить, что документация содержит blocked risk:
 
 ```bash
-git tag --list
+grep -n "blocked risk\|scanner_agent_blocked_risk_report\|заблокированным риск" README.md CRON_SETUP.md
 ```
 
-Посмотреть текущий коммит:
+После проверки:
 
 ```bash
+git add README.md CRON_SETUP.md
+git commit -m "Update docs for blocked risk scanner reports"
+git push origin main
+
+git status
 git log --oneline -5
 ```
 
 ---
 
-## Текущий рекомендуемый следующий этап разработки
+## 22. Следующий разумный шаг
 
-После стабильной безопасной Telegram/cron-сборки логичный следующий этап:
+После стабильной сборки `scanner-safe-risk-reports-v1` следующий безопасный этап:
 
-1. улучшить документацию запуска и восстановления;
-2. добавить `.gitignore` для локальных отчётов, `.env`, `__pycache__`, `.session`;
-3. расширить тестовые проверки safety gate;
-4. улучшить устойчивость Telegram timeout/retry без риска дублей;
-5. подготовить отдельный режим paper-trading без реальных ордеров;
-6. только после этого обсуждать торговую логику, строго отдельно от безопасного аналитического режима.
+1. улучшить качество Telegram-сигналов;
+2. расширить watchlist;
+3. добавить больше источников публичных каналов;
+4. улучшить scoring и risk explanations;
+5. добавить отдельный отчёт по quality trend каналов;
+6. оставить ордера и торгового бота отключёнными.
 
----
-
-## Важное предупреждение
-
-Этот проект не является финансовой рекомендацией. Все сигналы являются аналитическими. Решение принимает только пользователь. Автоматическое исполнение ордеров в текущем безопасном pipeline отключено.
+Автоматическая торговля не включается, пока не будет отдельного ручного approval-layer и отдельной safety-архитектуры.
