@@ -11,7 +11,7 @@
 Актуальная стабильная сборка с безопасным cron, Telegram-уведомлениями, safety gate и blocked risk отчётами:
 
 ```bash
-scanner-safe-risk-reports-v1
+scanner-safe-project-status-map-v2
 ```
 
 Предыдущие стабильные теги:
@@ -35,7 +35,34 @@ https://github.com/NetGeniusDeveloper/binance-spot-trading-bot
 
 ---
 
-## 2. Главное правило безопасности
+## 2. Documentation map
+
+Use these files as the current documentation set:
+
+```text
+README.md
+CRON_SETUP.md
+SAFE_RELEASES.md
+PROJECT_STATUS.md
+```
+
+Purpose:
+
+- `README.md` — main project overview and safe usage guide.
+- `CRON_SETUP.md` — safe cron setup instructions.
+- `SAFE_RELEASES.md` — stable releases, tags, and rollback map.
+- `PROJECT_STATUS.md` — short current project status summary.
+
+Current stable map tag:
+
+```text
+scanner-safe-project-status-map-v2
+```
+
+---
+
+
+## 3. Главное правило безопасности
 
 Проект работает только в аналитическом режиме.
 
@@ -51,7 +78,7 @@ Telegram-уведомление является только аналитиче
 
 ---
 
-## 3. Основные безопасные команды
+## 4. Основные безопасные команды
 
 Перейти в проект:
 
@@ -88,7 +115,7 @@ cat reports/scanner_agent_safety_gate_report.json
 
 ---
 
-## 4. Основные файлы проекта
+## 5. Основные файлы проекта
 
 ### Главные runner-скрипты
 
@@ -136,7 +163,7 @@ requirements-py313.txt
 
 ---
 
-## 5. Основные отчёты
+## 6. Основные отчёты
 
 Pipeline создаёт локальные отчёты в папке:
 
@@ -168,7 +195,7 @@ reports/telegram_channel_config_recommendations.json
 
 ---
 
-## 6. Safety gate
+## 7. Safety gate
 
 Safety gate — финальная проверка безопасного состояния pipeline.
 
@@ -370,7 +397,7 @@ bash -n run_full_scanner_agent_notification_pipeline_safe.sh
 
 ---
 
-## 12. Отчёт blocked risk
+## 13. Отчёт blocked risk
 
 В проект добавлен отдельный безопасный отчёт по сигналам, которые были заблокированы риск-фильтром.
 
