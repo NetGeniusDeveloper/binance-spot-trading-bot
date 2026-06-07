@@ -157,12 +157,17 @@ def build_safety_gate_payload() -> Dict[str, Any]:
         or final_status == "telegram_delivery_unknown"
     )
 
-    total_decisions = int(
-        as_dict(pipeline.get("decisions")).get("total_decisions")
-        or sender.get("total_decisions")
-        or decision.get("total_decisions")
-        or 0
-    )
+    pipeline_decisions = as_dict(pipeline.get("decisions"))
+    pipeline_total_decisions = pipeline_decisions.get("total_decisions")
+
+    if pipeline_total_decisions is not None:
+        total_decisions = int(pipeline_total_decisions)
+    elif decision.get("total_decisions") is not None:
+        total_decisions = int(decision.get("total_decisions"))
+    elif sender.get("total_decisions") is not None:
+        total_decisions = int(sender.get("total_decisions"))
+    else:
+        total_decisions = 0
 
     dangerous_flags = {
         "orders_enabled": bool_value(sender.get("orders_enabled"))
