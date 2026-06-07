@@ -1,42 +1,77 @@
-# Python
+# ==================================================
+# Python cache
+# ==================================================
 __pycache__/
 *.py[cod]
+*$py.class
+
+# ==================================================
+# Virtual environments
+# ==================================================
 .venv/
 venv/
+env/
 
-# Secrets
+# ==================================================
+# Environment secrets
+# ==================================================
 .env
-.env.*
+.env.local
+.env.*.local
+
+# Keep example environment file in Git
 !.env.sample
 
-# Runtime files
-application.log
-execute-times.tmp
-
-# Local data
-data/
-*.db
-*.sqlite
-*.sqlite3
-*.csv
-
-# Temporary patch files
-patch_*.py
-requirements-fixed.txt
-requirements-py313.txt
-
-# Generated scanner reports
-reports/*.md
-
-# Generated scanner JSON exports
-reports/*.json
-
-# Telegram client session files
+# ==================================================
+# Telegram local session files
+# ==================================================
 *.session
 *.session-journal
+crypto_scanner_session.session
+crypto_scanner_session.session-journal
 
-# Generated scanner text reports
+# ==================================================
+# Local reports and runtime outputs
+# ==================================================
+reports/*.json
 reports/*.txt
 reports/*.log
-reports/*.recommended.py
-reports/*.backup.py
+reports/*.db
+reports/*.sqlite
+reports/*.sqlite3
+
+# Keep recommended/generated Python config previews if needed
+!reports/scanner_real_channels.recommended.py
+!reports/scanner_real_channels.backup.py
+
+# ==================================================
+# Local database files
+# ==================================================
+data/social_scanner.db
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+
+# ==================================================
+# Logs
+# ==================================================
+*.log
+logs/
+
+# ==================================================
+# OS / editor files
+# ==================================================
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*.save
+*.bak
+*.backup
+
+# ==================================================
+# Local test artifacts
+# ==================================================
+.pytest_cache/
+.coverage
+htmlcov/
