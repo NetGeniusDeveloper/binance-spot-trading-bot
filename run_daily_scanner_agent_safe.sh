@@ -16,6 +16,8 @@ QUALITY_TXT="reports/telegram_channel_quality_report.txt"
 QUALITY_JSON="reports/telegram_channel_quality_report.json"
 RECOMMENDATIONS_TXT="reports/telegram_channel_config_recommendations.txt"
 RECOMMENDATIONS_JSON="reports/telegram_channel_config_recommendations.json"
+AUDIT_TXT="reports/scanner_agent_telegram_sender_audit_report.txt"
+AUDIT_JSON="reports/scanner_agent_telegram_sender_audit_report.json"
 
 echo "======================================"
 echo "DAILY SCANNER AGENT SAFE RUN"
@@ -45,6 +47,12 @@ echo
 
 echo "[OK] Full safe pipeline finished"
 echo "[OK] Full log saved to: ${LOG_FILE}"
+
+echo
+echo "======================================"
+echo "3A. TELEGRAM SENDER AUDIT GENERATION"
+echo "======================================"
+python scanner_agent_telegram_sender_audit_report.py || echo "[WARN] Telegram sender audit report failed"
 
 echo
 echo "======================================"
@@ -111,6 +119,29 @@ warnings = payload.get("warnings", [])
 print("Blockers:", ", ".join(blockers) if blockers else "none")
 print("Warnings:", ", ".join(warnings) if warnings else "none")
 PY
+echo
+echo "Telegram audit JSON: ${AUDIT_JSON}"
+if [ -f "${AUDIT_JSON}" ]; then
+  python - <<'PY2'
+import json
+from pathlib import Path
+
+path = Path("reports/scanner_agent_telegram_sender_audit_report.json")
+
+try:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+except Exception as ex:
+    print("[WARN] Cannot read Telegram sender audit JSON:", ex)
+    raise SystemExit
+
+print("Telegram audit status:", payload.get("audit_status"))
+print("Telegram audit safety OK:", payload.get("safety_ok"))
+print("Telegram audit blockers:", ", ".join(payload.get("blockers", [])) or "none")
+print("Telegram audit warnings:", ", ".join(payload.get("warnings", [])) or "none")
+PY2
+else
+  echo "[WARN] Missing Telegram sender audit JSON: ${AUDIT_JSON}"
+fi
 else
   echo "[WARN] Missing summary JSON: ${SUMMARY_JSON}"
 fi
