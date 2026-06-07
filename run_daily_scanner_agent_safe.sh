@@ -12,6 +12,8 @@ mkdir -p reports
 LOG_FILE="reports/daily_scanner_agent_pipeline.log"
 SUMMARY_TXT="reports/scanner_agent_pipeline_summary.txt"
 SUMMARY_JSON="reports/scanner_agent_pipeline_summary.json"
+QUALITY_TXT="reports/telegram_channel_quality_report.txt"
+QUALITY_JSON="reports/telegram_channel_quality_report.json"
 
 echo "======================================"
 echo "DAILY SCANNER AGENT SAFE RUN"
@@ -55,7 +57,18 @@ fi
 
 echo
 echo "======================================"
-echo "4. QUICK JSON STATUS"
+echo "4. CHANNEL QUALITY SUMMARY"
+echo "======================================"
+
+if [ -f "${QUALITY_TXT}" ]; then
+  cat "${QUALITY_TXT}"
+else
+  echo "[WARN] Missing channel quality TXT: ${QUALITY_TXT}"
+fi
+
+echo
+echo "======================================"
+echo "5. QUICK JSON STATUS"
 echo "======================================"
 
 if [ -f "${SUMMARY_JSON}" ]; then
@@ -91,12 +104,68 @@ fi
 
 echo
 echo "======================================"
-echo "5. SAFETY RESULT"
+echo "6. QUICK CHANNEL QUALITY STATUS"
+echo "======================================"
+
+if [ -f "${QUALITY_JSON}" ]; then
+  python - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("reports/telegram_channel_quality_report.json")
+
+try:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+except Exception as ex:
+    print("[WARN] Cannot read channel quality JSON:", ex)
+    raise SystemExit
+
+print("Safe to continue:", payload.get("safe_to_continue"))
+print("Channels analyzed:", payload.get("channels_analyzed"))
+print("Keep:", payload.get("channels_keep"))
+print("Watch:", payload.get("channels_watch"))
+print("Disable:", payload.get("channels_disable"))
+print("Preview messages collected:", payload.get("preview_messages_collected"))
+print("Skipped old messages:", payload.get("preview_skipped_old_messages"))
+print("Skipped empty messages:", payload.get("preview_skipped_empty_messages"))
+
+blockers = payload.get("blockers", [])
+warnings = payload.get("warnings", [])
+
+print("Blockers:", ", ".join(blockers) if blockers else "none")
+print("Warnings:", ", ".join(warnings) if warnings else "none")
+
+channels = payload.get("channels", [])
+
+if channels:
+    print()
+    print("Channel recommendations:")
+
+    for item in channels:
+        print(
+            "- @{channel}: {recommendation} "
+            "score={score} messages={messages} tickers={tickers}".format(
+                channel=item.get("channel"),
+                recommendation=item.get("recommendation"),
+                score=item.get("quality_score"),
+                messages=item.get("messages"),
+                tickers=",".join(item.get("unique_tickers", [])) or "none",
+            )
+        )
+PY
+else
+  echo "[WARN] Missing channel quality JSON: ${QUALITY_JSON}"
+fi
+
+echo
+echo "======================================"
+echo "7. SAFETY RESULT"
 echo "======================================"
 echo "[OK] This daily runner did not create orders"
 echo "[OK] This daily runner did not start trading bot"
 echo "[OK] Full pipeline log was saved locally"
-echo "[OK] Final summary was printed for manual review"
+echo "[OK] Final pipeline summary was printed for manual review"
+echo "[OK] Channel quality summary was printed for manual review"
 echo "[OK] Telegram sending still depends on safety flags"
 
 echo
