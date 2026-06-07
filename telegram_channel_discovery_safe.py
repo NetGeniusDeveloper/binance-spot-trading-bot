@@ -55,6 +55,14 @@ STANDALONE_TICKER_PATTERN = re.compile(
     r"(?<![A-Z0-9])(?:\$|#)?([A-Z0-9]{2,12})(?![A-Z0-9])"
 )
 
+PREFIX_TICKER_PATTERN = re.compile(
+    r"(?<![A-Z0-9])[$#]([A-Z0-9]{2,12})(?![A-Z0-9])"
+)
+
+PAREN_TICKER_PATTERN = re.compile(
+    r"\(([A-Z0-9]{2,12})\)"
+)
+
 NOISE_TICKERS = {
     "THE",
     "AND",
@@ -147,11 +155,56 @@ def add_ticker_if_allowed(
         found.append(normalized)
 
 
+def normalize_allowed_set(value: Any) -> set[str]:
+    if not value:
+        return set()
+
+    if isinstance(value, (list, tuple, set)):
+        return {str(item).upper().strip() for item in value if str(item).strip()}
+
+    return set()
+
+
+def add_ticker_if_allowed(
+    found: List[str],
+    ticker: str,
+    allowed_base_assets: set[str],
+) -> None:
+    normalized = str(ticker or "").upper().strip()
+
+    if not normalized:
+        return
+
+    if normalized in NOISE_TICKERS:
+        return
+
+    if len(normalized) < 2:
+        return
+
+    if allowed_base_assets and normalized not in allowed_base_assets:
+        return
+
+    if normalized not in found:
+        found.append(normalized)
+
+
 def extract_tickers(
     text: str,
     allowed_base_assets: Any = None,
     allowed_symbols: Any = None,
 ) -> List[str]:
+    """
+    Extract only strong crypto ticker mentions.
+
+    Accepted:
+    - BTCUSDT, SOL/USDT, ETH_USDT
+    - $ETH, #TON, #USDT
+    - tokens in brackets: (NEAR), (MBOX), (COS)
+
+    Rejected:
+    - plain uppercase common words even if Binance has such asset, for example:
+      AT, ONE, OPEN, WIN, AI, JOE.
+    """
     found: List[str] = []
     upper_text = str(text or "").upper()
 
@@ -159,7 +212,9 @@ def extract_tickers(
     allowed_pairs = normalize_allowed_set(allowed_symbols)
 
     for base, quote in PAIR_TICKER_PATTERN.findall(upper_text):
-        pair = (str(base) + str(quote)).upper()
+        base = str(base).upper().strip()
+        quote = str(quote).upper().strip()
+        pair = base + quote
 
         if allowed_pairs and pair not in allowed_pairs:
             continue
@@ -170,22 +225,14 @@ def extract_tickers(
             allowed_base_assets=allowed_bases,
         )
 
-    for match in STANDALONE_TICKER_PATTERN.findall(upper_text):
-        ticker = str(match).upper().strip()
+    for ticker in PREFIX_TICKER_PATTERN.findall(upper_text):
+        add_ticker_if_allowed(
+            found=found,
+            ticker=ticker,
+            allowed_base_assets=allowed_bases,
+        )
 
-        if ticker.endswith("USDT") and len(ticker) > 4:
-            base = ticker[:-4]
-            pair = ticker
-
-            if allowed_pairs and pair in allowed_pairs:
-                add_ticker_if_allowed(
-                    found=found,
-                    ticker=base,
-                    allowed_base_assets=allowed_bases,
-                )
-
-            continue
-
+    for ticker in PAREN_TICKER_PATTERN.findall(upper_text):
         add_ticker_if_allowed(
             found=found,
             ticker=ticker,
