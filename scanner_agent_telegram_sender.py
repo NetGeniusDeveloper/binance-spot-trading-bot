@@ -244,18 +244,29 @@ def build_base_payload(
 def build_delivery_message_text(text: str) -> str:
     delivery_text = str(text)
 
+    delivery_text = delivery_text.replace("\r\n", "\n").replace("\r", "\n")
+
+    delivery_text = delivery_text.replace(
+        "Telegram: preview, сообщение не отправлено",
+        "Telegram: отправлено как аналитическое уведомление",
+    )
+
+    delivery_text = delivery_text.replace(
+        "Telegram: аналитическое уведомление через ручные флаги безопасности",
+        "Telegram: отправлено как аналитическое уведомление",
+    )
+
     delivery_text = delivery_text.replace(
         "Telegram send: отключён",
-        "Доставка: Telegram, сообщение отправляется по двум ручным флагам безопасности",
+        "Telegram: отправлено как аналитическое уведомление",
     )
 
     delivery_text = delivery_text.replace(
         "Доставка: preview, сообщение не отправлено",
-        "Доставка: Telegram, сообщение отправляется по двум ручным флагам безопасности",
+        "Telegram: отправлено как аналитическое уведомление",
     )
 
     return delivery_text
-
 
 def send_telegram_message(text: str) -> Dict[str, Any]:
     try:
