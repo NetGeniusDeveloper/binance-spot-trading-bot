@@ -239,7 +239,9 @@ def build_summary_payload() -> Dict[str, Any]:
         "disclaimer": (
             "This is a final analytical pipeline summary. "
             "It does not create orders, does not start trading, "
-            "does not call Binance API, and does not send Telegram messages."
+            "and does not call Binance API. "
+            "It does not send Telegram messages directly; "
+            "it only reports whether the separate Telegram sender step sent a message."
         ),
     }
 
@@ -336,7 +338,18 @@ def build_text_summary(payload: Dict[str, Any]) -> str:
     lines.append("[OK] This summary did not create orders.")
     lines.append("[OK] This summary did not start trading bot.")
     lines.append("[OK] This summary did not call Binance API.")
-    lines.append("[OK] This summary did not send Telegram messages.")
+
+    if telegram.get("telegram_message_sent"):
+        lines.append("[OK] This summary detected that Telegram notification was sent by sender step.")
+        lines.append("[OK] Orders still remained disabled.")
+    else:
+        lines.append("[OK] This summary did not detect a sent Telegram notification.")
+
+    if telegram.get("telegram_api_used"):
+        lines.append("[OK] Telegram API use was reported by sender step, not by summary generation.")
+    else:
+        lines.append("[OK] This summary did not detect Telegram API usage in sender result.")
+
     lines.append("[OK] This summary only reads existing analytical report files.")
     lines.append("[OK] Real Telegram delivery requires two manual flags.")
     lines.append("")
@@ -398,7 +411,18 @@ def print_summary(payload: Dict[str, Any], json_path: Path, txt_path: Path) -> N
     print("[OK] This summary did not create orders.")
     print("[OK] This summary did not start trading bot.")
     print("[OK] This summary did not call Binance API.")
-    print("[OK] This summary did not send Telegram messages.")
+
+    if telegram.get("telegram_message_sent"):
+        print("[OK] This summary detected that Telegram notification was sent by sender step.")
+        print("[OK] Orders still remained disabled.")
+    else:
+        print("[OK] This summary did not detect a sent Telegram notification.")
+
+    if telegram.get("telegram_api_used"):
+        print("[OK] Telegram API use was reported by sender step, not by summary generation.")
+    else:
+        print("[OK] This summary did not detect Telegram API usage in sender result.")
+
     print("[OK] This summary only reads existing analytical files.")
     print("[OK] Real Telegram delivery requires two manual flags.")
 
