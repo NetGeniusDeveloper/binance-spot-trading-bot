@@ -38,3 +38,4 @@ reports/*.json
 # Generated scanner text reports
 reports/*.txt
 reports/*.log
+reports/*.recommended.py
