@@ -8,6 +8,7 @@ REPORTS_DIR = Path("reports")
 
 EXPORT_PATH = REPORTS_DIR / "scanner_agent_export.json"
 DECISION_PATH = REPORTS_DIR / "scanner_agent_decision.json"
+TELEGRAM_SENDER_DRY_RUN_PATH = REPORTS_DIR / "scanner_agent_telegram_sender_dry_run.json"
 TELEGRAM_SENDER_RESULT_PATH = REPORTS_DIR / "scanner_agent_telegram_sender_result.json"
 OUTPUT_PATH = REPORTS_DIR / "scanner_agent_pipeline_summary.json"
 OUTPUT_TXT_PATH = REPORTS_DIR / "scanner_agent_pipeline_summary.txt"
@@ -59,13 +60,19 @@ def as_dict(value: Any) -> Dict[str, Any]:
     return {}
 
 
+def bool_value(value: Any) -> bool:
+    return bool(value)
+
+
 def build_summary_payload() -> Dict[str, Any]:
     export_file = load_json_file(EXPORT_PATH)
     decision_file = load_json_file(DECISION_PATH)
+    dry_run_file = load_json_file(TELEGRAM_SENDER_DRY_RUN_PATH)
     sender_file = load_json_file(TELEGRAM_SENDER_RESULT_PATH)
 
     export_data = as_dict(export_file.get("data"))
     decision_data = as_dict(decision_file.get("data"))
+    dry_run_data = as_dict(dry_run_file.get("data"))
     sender_data = as_dict(sender_file.get("data"))
 
     candidates = as_list(export_data.get("candidates"))
@@ -75,18 +82,19 @@ def build_summary_payload() -> Dict[str, Any]:
     blockers: List[str] = []
     warnings: List[str] = []
 
-    for loaded_file in [export_file, decision_file, sender_file]:
+    for loaded_file in [export_file, decision_file, dry_run_file, sender_file]:
         if not loaded_file.get("ok"):
             warnings.append(str(loaded_file.get("error")))
 
-    sender_blockers = sender_data.get("blockers", [])
-    sender_warnings = sender_data.get("warnings", [])
+    for source_data in [dry_run_data, sender_data]:
+        source_blockers = source_data.get("blockers", [])
+        source_warnings = source_data.get("warnings", [])
 
-    if isinstance(sender_blockers, list):
-        blockers.extend(str(item) for item in sender_blockers)
+        if isinstance(source_blockers, list):
+            blockers.extend(str(item) for item in source_blockers if str(item).strip())
 
-    if isinstance(sender_warnings, list):
-        warnings.extend(str(item) for item in sender_warnings)
+        if isinstance(source_warnings, list):
+            warnings.extend(str(item) for item in source_warnings if str(item).strip())
 
     total_signals_loaded = int(export_data.get("total_signals_loaded") or 0)
     blocked_signals = int(export_data.get("blocked_signals") or 0)
@@ -99,10 +107,26 @@ def build_summary_payload() -> Dict[str, Any]:
 
     total_decisions = int(decision_data.get("total_decisions") or len(decisions) or 0)
 
-    telegram_send_enabled = bool(sender_data.get("telegram_send_enabled", False))
-    telegram_api_used = bool(sender_data.get("telegram_api_used", False))
-    telegram_message_sent = bool(sender_data.get("telegram_message_sent", False))
-    send_attempted = bool(sender_data.get("send_attempted", False))
+    telegram_send_enabled = bool_value(sender_data.get("telegram_send_enabled", False))
+    telegram_manual_confirm = bool_value(sender_data.get("telegram_manual_confirm", False))
+
+    scanner_telegram_send_enabled = bool_value(
+        dry_run_data.get("scanner_telegram_send_enabled", telegram_send_enabled)
+    )
+    scanner_telegram_manual_confirm = bool_value(
+        dry_run_data.get("scanner_telegram_manual_confirm", telegram_manual_confirm)
+    )
+
+    ready_for_real_sender_now = bool_value(
+        dry_run_data.get("ready_for_real_sender_now", False)
+    )
+    would_send_if_enabled = bool_value(
+        dry_run_data.get("would_send_if_enabled", False)
+    )
+
+    telegram_api_used = bool_value(sender_data.get("telegram_api_used", False))
+    telegram_message_sent = bool_value(sender_data.get("telegram_message_sent", False))
+    send_attempted = bool_value(sender_data.get("send_attempted", False))
 
     if total_signals_loaded <= 0:
         final_status = "no_signals"
@@ -119,9 +143,12 @@ def build_summary_payload() -> Dict[str, Any]:
     elif send_attempted and not telegram_message_sent:
         final_status = "notification_failed"
         final_note = "Telegram sending was attempted but failed. Check sender result."
-    elif telegram_send_enabled and total_decisions > 0:
-        final_status = "ready_but_not_sent"
-        final_note = "Decisions exist and sender is enabled, but message was not sent. Check blockers."
+    elif ready_for_real_sender_now and total_decisions > 0:
+        final_status = "ready_for_real_sender"
+        final_note = "Decisions exist and both Telegram manual flags are enabled. Real sender may send if executed."
+    elif would_send_if_enabled and total_decisions > 0:
+        final_status = "ready_for_manual_review"
+        final_note = "Decisions exist, but one or both Telegram manual flags are disabled. Review reports manually."
     else:
         final_status = "ready_for_manual_review"
         final_note = "Decisions exist. Telegram sending is disabled or skipped. Review reports manually."
@@ -129,6 +156,7 @@ def build_summary_payload() -> Dict[str, Any]:
     safe_pipeline = (
         bool(export_data.get("analytical_only", True))
         and bool(decision_data.get("analytical_only", True))
+        and bool(dry_run_data.get("analytical_only", True) if dry_run_data else True)
         and bool(sender_data.get("analytical_only", True) if sender_data else True)
         and not bool(sender_data.get("orders_enabled", False))
         and not bool(sender_data.get("trading_enabled", False))
@@ -157,6 +185,11 @@ def build_summary_payload() -> Dict[str, Any]:
                 "ok": decision_file.get("ok"),
                 "error": decision_file.get("error"),
             },
+            "telegram_sender_dry_run": {
+                "path": str(TELEGRAM_SENDER_DRY_RUN_PATH),
+                "ok": dry_run_file.get("ok"),
+                "error": dry_run_file.get("error"),
+            },
             "telegram_sender_result": {
                 "path": str(TELEGRAM_SENDER_RESULT_PATH),
                 "ok": sender_file.get("ok"),
@@ -176,6 +209,11 @@ def build_summary_payload() -> Dict[str, Any]:
         },
         "telegram": {
             "telegram_send_enabled": telegram_send_enabled,
+            "telegram_manual_confirm": telegram_manual_confirm,
+            "scanner_telegram_send_enabled": scanner_telegram_send_enabled,
+            "scanner_telegram_manual_confirm": scanner_telegram_manual_confirm,
+            "ready_for_real_sender_now": ready_for_real_sender_now,
+            "would_send_if_enabled": would_send_if_enabled,
             "telegram_api_used": telegram_api_used,
             "telegram_message_sent": telegram_message_sent,
             "send_attempted": send_attempted,
@@ -242,6 +280,11 @@ def build_text_summary(payload: Dict[str, Any]) -> str:
     lines.append("TELEGRAM")
     lines.append("========")
     lines.append(f"Telegram send enabled: {telegram.get('telegram_send_enabled')}")
+    lines.append(f"Telegram manual confirm: {telegram.get('telegram_manual_confirm')}")
+    lines.append(f"Scanner Telegram send enabled: {telegram.get('scanner_telegram_send_enabled')}")
+    lines.append(f"Scanner Telegram manual confirm: {telegram.get('scanner_telegram_manual_confirm')}")
+    lines.append(f"Ready for real sender now: {telegram.get('ready_for_real_sender_now')}")
+    lines.append(f"Would send if enabled: {telegram.get('would_send_if_enabled')}")
     lines.append(f"Telegram API used: {telegram.get('telegram_api_used')}")
     lines.append(f"Telegram message sent: {telegram.get('telegram_message_sent')}")
     lines.append(f"Send attempted: {telegram.get('send_attempted')}")
@@ -280,6 +323,7 @@ def build_text_summary(payload: Dict[str, Any]) -> str:
     lines.append("[OK] This summary did not call Binance API.")
     lines.append("[OK] This summary did not send Telegram messages.")
     lines.append("[OK] This summary only reads existing analytical report files.")
+    lines.append("[OK] Real Telegram delivery requires two manual flags.")
     lines.append("")
 
     return "\n".join(lines)
@@ -317,6 +361,9 @@ def print_summary(payload: Dict[str, Any], json_path: Path, txt_path: Path) -> N
     print("Watchlist:", scanner.get("total_watchlist_candidates"))
     print("Decisions:", decisions.get("total_decisions"))
     print("Telegram send enabled:", telegram.get("telegram_send_enabled"))
+    print("Telegram manual confirm:", telegram.get("telegram_manual_confirm"))
+    print("Ready for real sender now:", telegram.get("ready_for_real_sender_now"))
+    print("Would send if enabled:", telegram.get("would_send_if_enabled"))
     print("Telegram message sent:", telegram.get("telegram_message_sent"))
 
     if payload.get("blockers"):
@@ -337,6 +384,7 @@ def print_summary(payload: Dict[str, Any], json_path: Path, txt_path: Path) -> N
     print("[OK] This summary did not call Binance API.")
     print("[OK] This summary did not send Telegram messages.")
     print("[OK] This summary only reads existing analytical files.")
+    print("[OK] Real Telegram delivery requires two manual flags.")
 
 
 def main() -> None:
