@@ -13,7 +13,7 @@ OUTPUT_PATH = Path("reports") / "scanner_agent_telegram_message_preview.txt"
 MAX_TELEGRAM_MESSAGE_LENGTH = 3500
 
 DECISION_TITLES = {
-    "candidate": "🔥 СИЛЬНЫЕ АНАЛИТИЧЕСКИЕ КАНДИДАТЫ",
+    "candidate": "🔥 СИЛЬНЫЕ КАНДИДАТЫ",
     "wait_confirmation": "⏳ ЖДАТЬ ПОДТВЕРЖДЕНИЯ",
     "wait_retest": "🔁 ЖДАТЬ РЕТЕСТ",
     "observe": "👀 ТОЛЬКО НАБЛЮДАТЬ",
@@ -29,6 +29,16 @@ DECISION_ORDER = [
     "blocked_risk",
     "ignore",
 ]
+
+
+ACTION_BY_DECISION = {
+    "candidate": "ручная проверка, автоордера запрещены",
+    "wait_confirmation": "ждать подтверждения, вход запрещён",
+    "wait_retest": "ждать ретест/подтверждение, вход запрещён",
+    "observe": "только наблюдать",
+    "blocked_risk": "не использовать, заблокировано риском",
+    "ignore": "игнорировать, сигнал слабый",
+}
 
 
 def load_decision_payload(path: Path = INPUT_PATH) -> Dict[str, Any]:
@@ -72,6 +82,17 @@ def format_list(value: Any) -> str:
     return ", ".join(items) if items else "none"
 
 
+def format_score(value: Any) -> str:
+    try:
+        return str(round(float(value), 2))
+    except Exception:
+        return "n/a"
+
+
+def format_bool_ru(value: Any) -> str:
+    return "да" if bool(value) else "нет"
+
+
 def group_decisions(decisions: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
     grouped: Dict[str, List[Dict[str, Any]]] = {}
 
@@ -91,48 +112,73 @@ def group_decisions(decisions: List[Dict[str, Any]]) -> Dict[str, List[Dict[str,
     return grouped
 
 
-def build_compact_item_line(item: Dict[str, Any]) -> str:
-    pair = item.get("pair")
-    decision = item.get("decision")
-    final_score = item.get("final_score")
-    market_score = item.get("market_score")
-    telegram_score = item.get("telegram_score")
-    has_retest = item.get("has_retest")
-    risk_flags = format_list(item.get("risk_flags"))
-    message_intent = item.get("message_intent")
-
-    return (
-        f"{pair}: {decision}\n"
-        f"final={final_score} | market={market_score} | telegram={telegram_score} | "
-        f"retest={has_retest}\n"
-        f"risks={risk_flags} | message={message_intent}"
-    )
-
-
-def build_decision_reason_line(item: Dict[str, Any]) -> str:
+def extract_main_reason(item: Dict[str, Any]) -> str:
     reasons = normalize_list(item.get("reasons", []))
 
     if not reasons:
-        return "Причина: нет подробного объяснения."
+        return "нет подробного объяснения"
 
-    important_reasons: List[str] = []
+    priority_fragments = [
+        "signal needs retest",
+        "message asks",
+        "suitable only for observation",
+        "strong analytical candidate",
+        "blocked because",
+        "signal is weak",
+    ]
 
     for reason in reasons:
-        text = str(reason)
+        lowered = reason.lower()
 
-        if (
-            "message asks" in text
-            or "needs retest" in text
-            or "suitable only for observation" in text
-            or "strong analytical candidate" in text
-            or "blocked" in text
-        ):
-            important_reasons.append(text)
+        if any(fragment in lowered for fragment in priority_fragments):
+            return reason
 
-    if not important_reasons:
-        important_reasons = reasons[-2:]
+    return reasons[-1]
 
-    return "Причина: " + "; ".join(important_reasons[:2])
+
+def build_compact_item_block(item: Dict[str, Any]) -> List[str]:
+    decision = str(item.get("decision", "unknown"))
+    action = ACTION_BY_DECISION.get(decision, "ручная проверка")
+
+    lines: List[str] = []
+
+    lines.append(f"{item.get('pair')} — {decision}")
+    lines.append(f"Действие: {action}")
+    lines.append(
+        "Оценка: "
+        f"final {format_score(item.get('final_score'))} / "
+        f"market {format_score(item.get('market_score'))} / "
+        f"telegram {format_score(item.get('telegram_score'))}"
+    )
+    lines.append(
+        "Контекст: "
+        f"group={item.get('source_group', 'unknown')} / "
+        f"retest={format_bool_ru(item.get('has_retest'))} / "
+        f"market_confirm={format_bool_ru(item.get('market_confirmation'))}"
+    )
+    lines.append(f"Риски: {format_list(item.get('risk_flags'))}")
+    lines.append(
+        "Сообщение: "
+        f"{item.get('message_intent')} / "
+        f"quality={format_score(item.get('message_quality_score'))} / "
+        f"flags={format_list(item.get('message_risk_flags'))}"
+    )
+    lines.append(f"Причина: {extract_main_reason(item)}")
+    lines.append("")
+
+    return lines
+
+
+def build_short_summary_by_decision(payload: Dict[str, Any]) -> List[str]:
+    summary = payload.get("summary_by_decision", {})
+
+    if not isinstance(summary, dict) or not summary:
+        return ["- решений нет"]
+
+    return [
+        f"- {decision}: {count}"
+        for decision, count in sorted(summary.items())
+    ]
 
 
 def build_telegram_preview_text(payload: Dict[str, Any]) -> str:
@@ -152,14 +198,14 @@ def build_telegram_preview_text(payload: Dict[str, Any]) -> str:
     lines.append(f"Создано: {created_at}")
     lines.append("Режим: аналитика без торговли")
     lines.append("Ордера: отключены")
-    lines.append("Доставка: preview, сообщение не отправлено")
+    lines.append("Telegram: preview, сообщение не отправлено")
     lines.append("Binance orders: отключены")
     lines.append("")
     lines.append("Сводка:")
     lines.append(f"- всего решений: {payload.get('total_decisions', 0)}")
     lines.append(f"- candidates: {payload.get('total_input_candidates', 0)}")
     lines.append(f"- watchlist: {payload.get('total_input_watchlist_candidates', 0)}")
-    lines.append(f"- by decision: {payload.get('summary_by_decision', {})}")
+    lines.extend(build_short_summary_by_decision(payload))
     lines.append("")
 
     if payload.get("error"):
@@ -169,7 +215,16 @@ def build_telegram_preview_text(payload: Dict[str, Any]) -> str:
 
     has_items = False
 
-    for decision in DECISION_ORDER:
+    # Priority sections for notification.
+    priority_decisions = [
+        "candidate",
+        "wait_confirmation",
+        "wait_retest",
+        "observe",
+        "blocked_risk",
+    ]
+
+    for decision in priority_decisions:
         items = grouped.get(decision, [])
 
         if not items:
@@ -182,9 +237,23 @@ def build_telegram_preview_text(payload: Dict[str, Any]) -> str:
         lines.append("-" * min(len(title), 32))
 
         for item in items[:5]:
-            lines.append(build_compact_item_line(item))
-            lines.append(build_decision_reason_line(item))
-            lines.append("")
+            lines.extend(build_compact_item_block(item))
+
+    ignored_items = grouped.get("ignore", [])
+
+    if ignored_items:
+        has_items = True
+        lines.append(DECISION_TITLES["ignore"])
+        lines.append("-" * 8)
+        lines.append(f"Игнорировано сигналов: {len(ignored_items)}")
+
+        for item in ignored_items[:3]:
+            lines.append(
+                f"- {item.get('pair')}: final={format_score(item.get('final_score'))}, "
+                f"message={item.get('message_intent')}, причина={extract_main_reason(item)}"
+            )
+
+        lines.append("")
 
     unknown_decisions = sorted(
         decision
@@ -203,9 +272,7 @@ def build_telegram_preview_text(payload: Dict[str, Any]) -> str:
         lines.append("-" * 20)
 
         for item in items[:5]:
-            lines.append(build_compact_item_line(item))
-            lines.append(build_decision_reason_line(item))
-            lines.append("")
+            lines.extend(build_compact_item_block(item))
 
     if not has_items:
         lines.append("Нет решений для уведомления.")

@@ -28,6 +28,16 @@ DECISION_ORDER = [
 ]
 
 
+ACTION_BY_DECISION = {
+    "candidate": "Manual review only. Do not open an order automatically.",
+    "wait_confirmation": "Wait for market confirmation. No entry now.",
+    "wait_retest": "Wait for retest or confirmation. No entry now.",
+    "observe": "Observation only. No entry now.",
+    "blocked_risk": "Blocked by risk filter. Do not use.",
+    "ignore": "Ignore. Signal is weak, neutral, or not actionable.",
+}
+
+
 def load_decision_payload(path: Path = INPUT_PATH) -> Dict[str, Any]:
     if not path.exists():
         return {
@@ -69,6 +79,17 @@ def format_list(value: Any) -> str:
     return ", ".join(items) if items else "none"
 
 
+def format_score(value: Any) -> str:
+    try:
+        return str(round(float(value), 2))
+    except Exception:
+        return "n/a"
+
+
+def format_bool(value: Any) -> str:
+    return "yes" if bool(value) else "no"
+
+
 def group_decisions(decisions: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
     grouped: Dict[str, List[Dict[str, Any]]] = {}
 
@@ -88,49 +109,95 @@ def group_decisions(decisions: List[Dict[str, Any]]) -> Dict[str, List[Dict[str,
     return grouped
 
 
-def build_item_line(item: Dict[str, Any]) -> str:
-    return (
-        f"{item.get('pair')} | "
-        f"decision={item.get('decision')} | "
-        f"priority={item.get('priority')} | "
-        f"status={item.get('suggested_status')} | "
-        f"final={item.get('final_score')} | "
-        f"market={item.get('market_score')} | "
-        f"telegram={item.get('telegram_score')} | "
-        f"retest={item.get('has_retest')} | "
-        f"risks={format_list(item.get('risk_flags'))} | "
-        f"message={item.get('message_intent')}"
-    )
+def count_by_source_group(decisions: List[Dict[str, Any]]) -> Dict[str, int]:
+    result: Dict[str, int] = {}
+
+    for item in decisions:
+        source_group = str(item.get("source_group", "unknown"))
+        result[source_group] = result.get(source_group, 0) + 1
+
+    return dict(sorted(result.items()))
+
+
+def extract_human_reason(item: Dict[str, Any]) -> str:
+    reasons = normalize_list(item.get("reasons", []))
+
+    if not reasons:
+        return "No detailed reason."
+
+    priority_phrases = [
+        "signal needs retest",
+        "message asks",
+        "suitable only for observation",
+        "strong analytical candidate",
+        "blocked because",
+        "signal is weak",
+    ]
+
+    important_reasons: List[str] = []
+
+    for reason in reasons:
+        lowered = reason.lower()
+
+        if any(phrase in lowered for phrase in priority_phrases):
+            important_reasons.append(reason)
+
+    if important_reasons:
+        return "; ".join(important_reasons[:2])
+
+    return "; ".join(reasons[-2:])
+
+
+def build_short_item_summary(item: Dict[str, Any]) -> List[str]:
+    decision = str(item.get("decision", "unknown"))
+    action = ACTION_BY_DECISION.get(decision, "Manual review required.")
+
+    return [
+        f"Pair: {item.get('pair')}",
+        f"Decision: {decision}",
+        f"Source group: {item.get('source_group', 'unknown')}",
+        f"Action: {action}",
+        (
+            "Scores: "
+            f"final={format_score(item.get('final_score'))}, "
+            f"market={format_score(item.get('market_score'))}, "
+            f"telegram={format_score(item.get('telegram_score'))}"
+        ),
+        f"Retest confirmed: {format_bool(item.get('has_retest'))}",
+        f"Market confirmation: {format_bool(item.get('market_confirmation'))}",
+        f"Risks: {format_list(item.get('risk_flags'))}",
+        f"Message intent: {item.get('message_intent')}",
+        f"Message quality: {format_score(item.get('message_quality_score'))}",
+        f"Message flags: {format_list(item.get('message_risk_flags'))}",
+        f"Main reason: {extract_human_reason(item)}",
+        f"Safe note: {item.get('safe_note')}",
+    ]
 
 
 def build_item_details(item: Dict[str, Any]) -> List[str]:
     lines: List[str] = []
 
-    lines.append(build_item_line(item))
-    lines.append("")
+    lines.append(f"{item.get('pair')} — {item.get('decision')}")
+    lines.append("-" * len(lines[-1]))
 
-    lines.append("Message:")
-    lines.append(f"- intent: {item.get('message_intent')}")
-    lines.append(f"- quality: {item.get('message_quality_score')}")
-    lines.append(f"- adjustment: {item.get('message_score_adjustment')}")
-    lines.append(f"- flags: {format_list(item.get('message_risk_flags'))}")
+    for summary_line in build_short_item_summary(item):
+        lines.append(summary_line)
 
     message_reasons = normalize_list(item.get("message_reasons", []))
-    lines.append(f"- reasons: {', '.join(message_reasons) if message_reasons else 'none'}")
-    lines.append("")
+
+    if message_reasons:
+        lines.append("Message reasons:")
+        for reason in message_reasons:
+            lines.append(f"- {reason}")
 
     reasons = normalize_list(item.get("reasons", []))
 
     if reasons:
-        lines.append("Reasons:")
-
+        lines.append("Technical reasons:")
         for reason in reasons:
             lines.append(f"- {reason}")
-    else:
-        lines.append("Reasons: none")
 
     lines.append("")
-
     return lines
 
 
@@ -142,6 +209,7 @@ def build_notification_text(payload: Dict[str, Any]) -> str:
         decisions = []
 
     grouped = group_decisions(decisions)
+    source_group_summary = count_by_source_group(decisions)
 
     lines: List[str] = []
 
@@ -175,8 +243,26 @@ def build_notification_text(payload: Dict[str, Any]) -> str:
     lines.append(f"Input watchlist candidates: {payload.get('total_input_watchlist_candidates', 0)}")
     lines.append(f"Total decisions: {payload.get('total_decisions', 0)}")
     lines.append(f"Summary by decision: {payload.get('summary_by_decision', {})}")
+    lines.append(f"Summary by source group: {source_group_summary}")
     lines.append(f"Blockers: {format_list(payload.get('blockers', []))}")
     lines.append(f"Warnings: {format_list(payload.get('warnings', []))}")
+    lines.append("")
+
+    lines.append("ACTION SUMMARY")
+    lines.append("==============")
+
+    if not decisions:
+        lines.append("No decisions found.")
+    else:
+        for decision in DECISION_ORDER:
+            items = grouped.get(decision, [])
+
+            if not items:
+                continue
+
+            action = ACTION_BY_DECISION.get(decision, "Manual review required.")
+            lines.append(f"{decision}: {len(items)} — {action}")
+
     lines.append("")
 
     for decision in DECISION_ORDER:
@@ -247,6 +333,11 @@ def save_notification_text(text: str, path: Path = OUTPUT_PATH) -> Path:
 
 
 def print_notification_summary(payload: Dict[str, Any], output_path: Path) -> None:
+    decisions = payload.get("decisions", [])
+
+    if not isinstance(decisions, list):
+        decisions = []
+
     print("SCANNER AGENT NOTIFICATION REPORT")
     print("=================================")
     print("Mode: analytical only")
@@ -263,6 +354,7 @@ def print_notification_summary(payload: Dict[str, Any], output_path: Path) -> No
     print("Safe to continue:", payload.get("safe_to_continue"))
     print("Total decisions:", payload.get("total_decisions", 0))
     print("Summary by decision:", payload.get("summary_by_decision", {}))
+    print("Summary by source group:", count_by_source_group(decisions))
 
     if payload.get("blockers"):
         print("Blockers:", ", ".join(str(item) for item in payload["blockers"]))
