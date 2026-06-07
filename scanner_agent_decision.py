@@ -11,18 +11,50 @@ OUTPUT_PATH = REPORTS_DIR / "scanner_agent_decision.json"
 BLOCKING_RISKS = {
     "pump_risk",
     "dangerous_fomo",
+    "very_wide_spread",
 }
 
 CONFIRMATION_FLAGS = {
     "message_wait_confirmation",
+    "needs_retest",
 }
 
 LIQUIDITY_RISKS = {
     "low_liquidity",
+    "thin_liquidity",
+}
+
+NO_CONFIRMATION_RISKS = {
+    "no_market_confirmation",
+    "weak_social_confirmation",
+}
+
+BLOCKING_ACTION_HINTS = {
+    "entry_forbidden",
+}
+
+WAIT_ACTION_HINTS = {
+    "wait_retest_confirmation",
+    "wait_confirmation",
+}
+
+OBSERVE_ACTION_HINTS = {
+    "observe_only",
+    "watch_only",
+}
+
+HIGH_RISK_LEVELS = {
+    "high",
+    "critical",
+}
+
+MEDIUM_RISK_LEVELS = {
+    "medium",
 }
 
 MIN_CANDIDATE_SCORE = 70.0
 MIN_OBSERVE_SCORE = 55.0
+MIN_MARKET_CONFIRMATION_SCORE = 60.0
 
 
 def load_agent_export(path: Path = INPUT_PATH) -> Dict[str, Any]:
@@ -80,6 +112,9 @@ def build_decision_reason(
     market_score = float(item.get("market_score") or 0.0)
     telegram_score = float(item.get("telegram_score") or 0.0)
     has_retest = bool(item.get("has_retest"))
+    market_confirmation = bool(item.get("market_confirmation"))
+    risk_level = str(item.get("risk_level") or "unknown")
+    action_hint = str(item.get("action_hint") or "unknown")
     message_intent = str(item.get("message_intent") or "")
 
     reasons.append(f"status={status}")
@@ -87,6 +122,9 @@ def build_decision_reason(
     reasons.append(f"market_score={market_score}")
     reasons.append(f"telegram_score={telegram_score}")
     reasons.append(f"has_retest={has_retest}")
+    reasons.append(f"market_confirmation={market_confirmation}")
+    reasons.append(f"risk_level={risk_level}")
+    reasons.append(f"action_hint={action_hint}")
 
     if message_intent:
         reasons.append(f"message_intent={message_intent}")
@@ -129,40 +167,74 @@ def decide_item(item: Dict[str, Any], source_group: str) -> Dict[str, Any]:
     market_score = float(item.get("market_score") or 0.0)
     telegram_score = float(item.get("telegram_score") or 0.0)
     has_retest = bool(item.get("has_retest"))
+    market_confirmation = bool(item.get("market_confirmation"))
+    risk_level = str(item.get("risk_level") or "unknown").strip().lower()
+    action_hint = str(item.get("action_hint") or "unknown").strip().lower()
     message_intent = str(item.get("message_intent") or "")
 
     decision = "ignore"
     priority = 0
 
-    if has_any(risk_flags, BLOCKING_RISKS):
-        decision = "blocked_risk"
-        priority = 90
+    high_risk = risk_level in HIGH_RISK_LEVELS
+    medium_risk = risk_level in MEDIUM_RISK_LEVELS
+    blocking_action = action_hint in BLOCKING_ACTION_HINTS
+    wait_action = action_hint in WAIT_ACTION_HINTS
+    observe_action = action_hint in OBSERVE_ACTION_HINTS
 
-    elif "low_liquidity" in risk_flags and final_score < MIN_OBSERVE_SCORE:
+    if high_risk or has_any(risk_flags, BLOCKING_RISKS):
         decision = "blocked_risk"
-        priority = 70
+        priority = 95
 
-    elif has_any(risk_flags, CONFIRMATION_FLAGS) or has_any(message_flags, CONFIRMATION_FLAGS):
-        if has_retest and final_score >= MIN_OBSERVE_SCORE:
+    elif blocking_action and (
+        has_any(risk_flags, LIQUIDITY_RISKS)
+        or has_any(risk_flags, NO_CONFIRMATION_RISKS)
+        or final_score < MIN_OBSERVE_SCORE
+    ):
+        decision = "blocked_risk"
+        priority = 85
+
+    elif has_any(risk_flags, LIQUIDITY_RISKS) and final_score < MIN_OBSERVE_SCORE:
+        decision = "blocked_risk"
+        priority = 75
+
+    elif wait_action or has_any(risk_flags, CONFIRMATION_FLAGS) or has_any(message_flags, CONFIRMATION_FLAGS):
+        if has_retest and final_score >= MIN_OBSERVE_SCORE and market_confirmation:
             decision = "wait_confirmation"
-            priority = 60
+            priority = 65
         else:
             decision = "wait_retest"
-            priority = 55
+            priority = 60
 
     elif not has_retest and status in {"ждать ретест"}:
         decision = "wait_retest"
-        priority = 55
+        priority = 58
 
-    elif status in {"движение возможно", "ждать ретест"} and final_score >= MIN_CANDIDATE_SCORE:
+    elif (
+        status in {"движение возможно", "ждать ретест"}
+        and final_score >= MIN_CANDIDATE_SCORE
+        and market_score >= MIN_MARKET_CONFIRMATION_SCORE
+        and market_confirmation
+        and has_retest
+        and not blocking_action
+        and not medium_risk
+    ):
         decision = "candidate"
         priority = 80
+
+    elif observe_action and final_score >= MIN_OBSERVE_SCORE:
+        decision = "observe"
+        priority = 55
 
     elif status == "только наблюдать" and final_score >= MIN_OBSERVE_SCORE:
         decision = "observe"
         priority = 50
 
-    elif final_score >= MIN_OBSERVE_SCORE and market_score >= 60:
+    elif (
+        final_score >= MIN_OBSERVE_SCORE
+        and market_score >= MIN_MARKET_CONFIRMATION_SCORE
+        and market_confirmation
+        and not blocking_action
+    ):
         decision = "observe"
         priority = 45
 
@@ -178,6 +250,7 @@ def decide_item(item: Dict[str, Any], source_group: str) -> Dict[str, Any]:
         "source": "scanner_agent_decision",
         "created_at": datetime.now().isoformat(timespec="seconds"),
         "analytical_only": True,
+        "orders_enabled": False,
         "order_execution_allowed": False,
         "trading_enabled": False,
         "decision": decision,
@@ -191,9 +264,11 @@ def decide_item(item: Dict[str, Any], source_group: str) -> Dict[str, Any]:
         "telegram_score": telegram_score,
         "market_score": market_score,
         "risk_adjustment": item.get("risk_adjustment"),
+        "risk_level": risk_level,
+        "action_hint": action_hint,
         "risk_flags": risk_flags,
         "has_retest": has_retest,
-        "market_confirmation": bool(item.get("market_confirmation")),
+        "market_confirmation": market_confirmation,
         "message_intent": item.get("message_intent"),
         "message_quality_score": item.get("message_quality_score"),
         "message_score_adjustment": item.get("message_score_adjustment"),
@@ -220,6 +295,7 @@ def build_not_ready_payload(export_payload: Dict[str, Any]) -> Dict[str, Any]:
         "input_file": str(INPUT_PATH),
         "output_file": str(OUTPUT_PATH),
         "analytical_only": True,
+        "orders_enabled": False,
         "order_execution_allowed": False,
         "trading_enabled": False,
         "safe_to_continue": False,
@@ -288,6 +364,7 @@ def build_decision_payload(export_payload: Dict[str, Any]) -> Dict[str, Any]:
         "input_source": export_payload.get("source"),
         "input_created_at": export_payload.get("created_at"),
         "analytical_only": True,
+        "orders_enabled": False,
         "order_execution_allowed": False,
         "trading_enabled": False,
         "safe_to_continue": True,
