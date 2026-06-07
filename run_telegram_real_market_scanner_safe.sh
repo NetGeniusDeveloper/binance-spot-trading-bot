@@ -40,7 +40,8 @@ python -m py_compile \
   clear_scanner_demo_history.py \
   scanner_agent_export.py \
   scanner_agent_export_report.py \
-  scanner_agent_decision.py
+  scanner_agent_decision.py \
+  scanner_agent_decision_report.py
 
 echo "[OK] Python files compiled successfully"
 
@@ -88,7 +89,13 @@ python scanner_agent_decision.py
 
 echo
 echo "======================================"
-echo "9. GENERATED FILES"
+echo "9. SCANNER AGENT DECISION REPORT"
+echo "======================================"
+python scanner_agent_decision_report.py
+
+echo
+echo "======================================"
+echo "10. GENERATED FILES"
 echo "======================================"
 echo "Telegram preview JSON: reports/telegram_real_messages_preview.json"
 echo "Telegram social analysis JSON: reports/telegram_real_social_signals.json"
@@ -100,7 +107,7 @@ echo "SQLite DB: data/social_scanner.db"
 
 echo
 echo "======================================"
-echo "10. SAFETY RESULT"
+echo "11. SAFETY RESULT"
 echo "======================================"
 echo "[OK] This script did not create orders"
 echo "[OK] This script did not run trading bot"
