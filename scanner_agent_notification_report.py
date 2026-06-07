@@ -128,10 +128,10 @@ def extract_human_reason(item: Dict[str, Any]) -> str:
     priority_phrases = [
         "нужен ретест",
         "message asks",
-        "suitable only for observation",
+        "сигнал подходит только для наблюдения",
         "strong analytical candidate",
         "blocked because",
-        "signal is weak",
+        "сигнал слабый",
     ]
 
     important_reasons: List[str] = []

@@ -109,7 +109,7 @@ def build_decision_reason(
         reasons.append("нужен ретест или подтверждение перед любыми действиями")
 
     if decision == "observe":
-        reasons.append("signal is suitable only for observation")
+        reasons.append("сигнал подходит только для наблюдения")
 
     if decision == "candidate":
         reasons.append("strong analytical candidate, still not a trade entry")
