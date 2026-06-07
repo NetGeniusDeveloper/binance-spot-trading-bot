@@ -58,3 +58,12 @@ SCANNER_TELEGRAM_SEND_ENABLED = get_bool_env(
     "SCANNER_TELEGRAM_SEND_ENABLED",
     default=False,
 )
+
+# Second manual safety confirmation for scanner agent Telegram sender.
+# Real Telegram sending is allowed only when BOTH flags are true:
+# SCANNER_TELEGRAM_SEND_ENABLED=true
+# SCANNER_TELEGRAM_MANUAL_CONFIRM=true
+SCANNER_TELEGRAM_MANUAL_CONFIRM = get_bool_env(
+    "SCANNER_TELEGRAM_MANUAL_CONFIRM",
+    default=False,
+)

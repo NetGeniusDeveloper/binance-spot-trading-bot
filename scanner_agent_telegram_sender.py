@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any, Dict
 
 from credentials import (
+    SCANNER_TELEGRAM_MANUAL_CONFIRM,
     SCANNER_TELEGRAM_SEND_ENABLED,
     TELEGRAM_ALERT_CHAT_ID,
     TELEGRAM_API_KEY,
@@ -69,12 +70,6 @@ def load_message_text(path: Path = INPUT_PATH) -> Dict[str, Any]:
 
 
 def load_decision_status(path: Path = DECISION_PATH) -> Dict[str, Any]:
-    """
-    Read scanner_agent_decision.json before any Telegram sending.
-
-    This prevents sending an empty notification when the latest scanner run
-    produced zero analytical decisions.
-    """
     if not path.exists():
         return {
             "ok": False,
@@ -147,6 +142,8 @@ def validate_sender_inputs(
 
     telegram_token_configured = bool(str(TELEGRAM_API_KEY or "").strip())
     telegram_chat_configured = bool(str(TELEGRAM_ALERT_CHAT_ID or "").strip())
+    scanner_telegram_send_enabled = bool(SCANNER_TELEGRAM_SEND_ENABLED)
+    scanner_telegram_manual_confirm = bool(SCANNER_TELEGRAM_MANUAL_CONFIRM)
 
     if not telegram_token_configured:
         blockers.append("telegram_api_key_not_configured")
@@ -179,7 +176,8 @@ def validate_sender_inputs(
         "telegram_chat_configured": telegram_chat_configured,
         "telegram_api_key_masked": mask_secret(TELEGRAM_API_KEY),
         "telegram_alert_chat_id_masked": mask_secret(TELEGRAM_ALERT_CHAT_ID),
-        "scanner_telegram_send_enabled": bool(SCANNER_TELEGRAM_SEND_ENABLED),
+        "scanner_telegram_send_enabled": scanner_telegram_send_enabled,
+        "scanner_telegram_manual_confirm": scanner_telegram_manual_confirm,
         "message_length": text_length,
         "telegram_limit": MAX_TELEGRAM_MESSAGE_LENGTH,
         "message_within_telegram_limit": text_length <= MAX_TELEGRAM_MESSAGE_LENGTH,
@@ -205,6 +203,7 @@ def build_base_payload(
         "analytical_only": True,
         "dry_run": False,
         "telegram_send_enabled": validation["scanner_telegram_send_enabled"],
+        "telegram_manual_confirm": validation["scanner_telegram_manual_confirm"],
         "telegram_api_used": False,
         "telegram_message_sent": False,
         "orders_enabled": False,
@@ -235,30 +234,24 @@ def build_base_payload(
         "disclaimer": (
             "This sender is for analytical scanner notifications only. "
             "It does not create orders, does not start trading, and does not call Binance API. "
-            "Telegram sending is disabled unless SCANNER_TELEGRAM_SEND_ENABLED=true. "
+            "Telegram sending is allowed only when SCANNER_TELEGRAM_SEND_ENABLED=true "
+            "and SCANNER_TELEGRAM_MANUAL_CONFIRM=true. "
             "If total_decisions is 0, Telegram sending is blocked."
         ),
     }
 
 
 def build_delivery_message_text(text: str) -> str:
-    """
-    Convert local preview text into real Telegram delivery text.
-
-    Preview file stays safe and says that sending is disabled.
-    Only this sender, after all checks and SCANNER_TELEGRAM_SEND_ENABLED=true,
-    changes the delivery line before sending.
-    """
     delivery_text = str(text)
 
     delivery_text = delivery_text.replace(
         "Telegram send: отключён",
-        "Доставка: Telegram, сообщение отправляется по разрешению SCANNER_TELEGRAM_SEND_ENABLED=true",
+        "Доставка: Telegram, сообщение отправляется по двум ручным флагам безопасности",
     )
 
     delivery_text = delivery_text.replace(
         "Доставка: preview, сообщение не отправлено",
-        "Доставка: Telegram, сообщение отправляется по разрешению SCANNER_TELEGRAM_SEND_ENABLED=true",
+        "Доставка: Telegram, сообщение отправляется по двум ручным флагам безопасности",
     )
 
     return delivery_text
@@ -320,6 +313,14 @@ def build_sender_payload() -> Dict[str, Any]:
         payload["warnings"] = sorted(set(payload["warnings"]))
         return payload
 
+    if not payload["telegram_manual_confirm"]:
+        payload["blockers"].append("scanner_telegram_manual_confirm_is_false")
+        payload["warnings"].append("send_not_attempted_because_manual_confirm_is_false")
+        payload["blockers"] = sorted(set(payload["blockers"]))
+        payload["warnings"] = sorted(set(payload["warnings"]))
+        payload["safe_to_continue"] = False
+        return payload
+
     text = build_delivery_message_text(str(message_result.get("text", "")))
 
     payload["message_length"] = len(text)
@@ -371,6 +372,7 @@ def print_sender_summary(payload: Dict[str, Any], output_path: Path) -> None:
     print("=============================")
     print("Mode: analytical only")
     print("Telegram send enabled:", payload["telegram_send_enabled"])
+    print("Telegram manual confirm:", payload["telegram_manual_confirm"])
     print("Telegram API used:", payload["telegram_api_used"])
     print("Telegram message sent:", payload["telegram_message_sent"])
     print("Orders enabled:", payload["orders_enabled"])
@@ -420,6 +422,7 @@ def print_sender_summary(payload: Dict[str, Any], output_path: Path) -> None:
     print("[OK] This sender did not call Binance API.")
     print("[OK] This sender reads only local Telegram preview text.")
     print("[OK] This sender checks scanner_agent_decision.json before sending.")
+    print("[OK] Real Telegram sending requires two flags.")
 
     if payload["telegram_message_sent"]:
         print("[OK] Telegram message was sent as an analytical notification only.")
@@ -443,7 +446,12 @@ def print_sender_summary(payload: Dict[str, Any], output_path: Path) -> None:
 
     if not payload["telegram_send_enabled"]:
         print("Telegram sending is still disabled.")
-        print("To enable later, set SCANNER_TELEGRAM_SEND_ENABLED=true in .env and rerun.")
+        print("To enable later, set SCANNER_TELEGRAM_SEND_ENABLED=true and SCANNER_TELEGRAM_MANUAL_CONFIRM=true in .env.")
+        return
+
+    if not payload["telegram_manual_confirm"]:
+        print("Telegram sending was blocked by missing manual confirmation.")
+        print("To enable later, set SCANNER_TELEGRAM_MANUAL_CONFIRM=true in .env.")
         return
 
     print("Fix blockers or Telegram configuration, then rerun.")

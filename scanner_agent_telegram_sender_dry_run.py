@@ -3,7 +3,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict
 
-from credentials import TELEGRAM_ALERT_CHAT_ID, TELEGRAM_API_KEY
+from credentials import (
+    SCANNER_TELEGRAM_MANUAL_CONFIRM,
+    SCANNER_TELEGRAM_SEND_ENABLED,
+    TELEGRAM_ALERT_CHAT_ID,
+    TELEGRAM_API_KEY,
+)
 
 
 INPUT_PATH = Path("reports") / "scanner_agent_telegram_message_preview.txt"
@@ -69,12 +74,20 @@ def validate_dry_run_inputs(preview_result: Dict[str, Any]) -> Dict[str, Any]:
 
     telegram_token_configured = bool(str(TELEGRAM_API_KEY or "").strip())
     telegram_chat_configured = bool(str(TELEGRAM_ALERT_CHAT_ID or "").strip())
+    scanner_telegram_send_enabled = bool(SCANNER_TELEGRAM_SEND_ENABLED)
+    scanner_telegram_manual_confirm = bool(SCANNER_TELEGRAM_MANUAL_CONFIRM)
 
     if not telegram_token_configured:
         warnings.append("telegram_api_key_not_configured")
 
     if not telegram_chat_configured:
         warnings.append("telegram_alert_chat_id_not_configured")
+
+    if not scanner_telegram_send_enabled:
+        warnings.append("scanner_telegram_send_enabled_is_false")
+
+    if not scanner_telegram_manual_confirm:
+        warnings.append("scanner_telegram_manual_confirm_is_false")
 
     text = str(preview_result.get("text", ""))
     text_length = len(text)
@@ -85,13 +98,15 @@ def validate_dry_run_inputs(preview_result: Dict[str, Any]) -> Dict[str, Any]:
     return {
         "telegram_token_configured": telegram_token_configured,
         "telegram_chat_configured": telegram_chat_configured,
+        "scanner_telegram_send_enabled": scanner_telegram_send_enabled,
+        "scanner_telegram_manual_confirm": scanner_telegram_manual_confirm,
         "telegram_api_key_masked": mask_secret(TELEGRAM_API_KEY),
         "telegram_alert_chat_id_masked": mask_secret(TELEGRAM_ALERT_CHAT_ID),
         "message_length": text_length,
         "telegram_limit": MAX_TELEGRAM_MESSAGE_LENGTH,
         "message_within_telegram_limit": text_length <= MAX_TELEGRAM_MESSAGE_LENGTH,
         "blockers": blockers,
-        "warnings": warnings,
+        "warnings": sorted(set(warnings)),
     }
 
 
@@ -101,11 +116,17 @@ def build_dry_run_payload() -> Dict[str, Any]:
 
     safe_to_continue = bool(preview_result.get("ok")) and not validation["blockers"]
 
-    would_send = (
+    would_send_if_enabled = (
         safe_to_continue
         and validation["telegram_token_configured"]
         and validation["telegram_chat_configured"]
         and validation["message_within_telegram_limit"]
+    )
+
+    ready_for_real_sender_now = (
+        would_send_if_enabled
+        and validation["scanner_telegram_send_enabled"]
+        and validation["scanner_telegram_manual_confirm"]
     )
 
     return {
@@ -114,6 +135,8 @@ def build_dry_run_payload() -> Dict[str, Any]:
         "analytical_only": True,
         "dry_run": True,
         "telegram_send_enabled": False,
+        "scanner_telegram_send_enabled": validation["scanner_telegram_send_enabled"],
+        "scanner_telegram_manual_confirm": validation["scanner_telegram_manual_confirm"],
         "telegram_api_used": False,
         "telegram_message_sent": False,
         "orders_enabled": False,
@@ -123,7 +146,8 @@ def build_dry_run_payload() -> Dict[str, Any]:
         "input_file": str(INPUT_PATH),
         "output_file": str(OUTPUT_PATH),
         "safe_to_continue": safe_to_continue,
-        "would_send_if_enabled": would_send,
+        "would_send_if_enabled": would_send_if_enabled,
+        "ready_for_real_sender_now": ready_for_real_sender_now,
         "telegram_token_configured": validation["telegram_token_configured"],
         "telegram_chat_configured": validation["telegram_chat_configured"],
         "telegram_api_key_masked": validation["telegram_api_key_masked"],
@@ -138,7 +162,9 @@ def build_dry_run_payload() -> Dict[str, Any]:
         "disclaimer": (
             "This is a dry-run Telegram sender check. "
             "It does not send Telegram messages, does not create orders, "
-            "does not start trading, and does not call Binance API."
+            "does not start trading, and does not call Binance API. "
+            "Real Telegram sending requires SCANNER_TELEGRAM_SEND_ENABLED=true "
+            "and SCANNER_TELEGRAM_MANUAL_CONFIRM=true."
         ),
     }
 
@@ -165,6 +191,8 @@ def print_dry_run_summary(payload: Dict[str, Any], output_path: Path) -> None:
     print("Mode: analytical only")
     print("Dry run:", payload["dry_run"])
     print("Telegram send enabled:", payload["telegram_send_enabled"])
+    print("Scanner Telegram send enabled:", payload["scanner_telegram_send_enabled"])
+    print("Scanner Telegram manual confirm:", payload["scanner_telegram_manual_confirm"])
     print("Telegram API used:", payload["telegram_api_used"])
     print("Telegram message sent:", payload["telegram_message_sent"])
     print("Orders enabled:", payload["orders_enabled"])
@@ -178,6 +206,7 @@ def print_dry_run_summary(payload: Dict[str, Any], output_path: Path) -> None:
     print("=======")
     print("Safe to continue:", payload["safe_to_continue"])
     print("Would send if real sender was enabled:", payload["would_send_if_enabled"])
+    print("Ready for real sender now:", payload["ready_for_real_sender_now"])
     print("Telegram token configured:", payload["telegram_token_configured"])
     print("Telegram chat configured:", payload["telegram_chat_configured"])
     print("Telegram API key masked:", payload["telegram_api_key_masked"] or "not configured")
@@ -218,6 +247,7 @@ def print_dry_run_summary(payload: Dict[str, Any], output_path: Path) -> None:
     print("[OK] This dry run did not start trading bot.")
     print("[OK] This dry run did not call Binance API.")
     print("[OK] This dry run only checks local text and configuration.")
+    print("[OK] Real sender requires two manual flags.")
 
     print()
     print("NEXT STEP")
@@ -228,12 +258,16 @@ def print_dry_run_summary(payload: Dict[str, Any], output_path: Path) -> None:
         return
 
     if not payload["telegram_token_configured"] or not payload["telegram_chat_configured"]:
-        print("Add TELEGRAM_API_KEY and TELEGRAM_ALERT_CHAT_ID to .env if you want to test real delivery later.")
-        print("For now this dry run is complete and safe.")
+        print("Add TELEGRAM_API_KEY and TELEGRAM_ALERT_CHAT_ID to .env before real delivery.")
         return
 
-    print("Dry run is ready.")
-    print("Next safe step: build a separate manual-confirmation sender, still with sending disabled by default.")
+    if not payload["scanner_telegram_send_enabled"] or not payload["scanner_telegram_manual_confirm"]:
+        print("Dry run is complete and safe.")
+        print("Real delivery still requires both SCANNER_TELEGRAM_SEND_ENABLED=true and SCANNER_TELEGRAM_MANUAL_CONFIRM=true.")
+        return
+
+    print("Dry run is ready for controlled real sender.")
+    print("Keep order execution disabled.")
 
 
 def main() -> None:

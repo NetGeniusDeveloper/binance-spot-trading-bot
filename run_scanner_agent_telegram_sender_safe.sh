@@ -15,6 +15,8 @@ echo "Orders: disabled"
 echo "Trading: disabled"
 echo "Binance API: disabled"
 echo "Telegram send: controlled by SCANNER_TELEGRAM_SEND_ENABLED"
+echo "Manual confirm: controlled by SCANNER_TELEGRAM_MANUAL_CONFIRM"
+echo "Real Telegram sending requires BOTH flags to be true"
 echo
 
 echo "======================================"
@@ -75,8 +77,9 @@ echo "======================================"
 echo "[OK] This script did not create orders"
 echo "[OK] This script did not run trading bot"
 echo "[OK] This script did not call Binance API"
-echo "[OK] Telegram sending is controlled only by SCANNER_TELEGRAM_SEND_ENABLED"
-echo "[OK] Default safe value is SCANNER_TELEGRAM_SEND_ENABLED=false"
+echo "[OK] Telegram sending is controlled by SCANNER_TELEGRAM_SEND_ENABLED"
+echo "[OK] Manual confirmation is controlled by SCANNER_TELEGRAM_MANUAL_CONFIRM"
+echo "[OK] Default safe value for both flags is false"
 
 echo
 echo "DONE"
