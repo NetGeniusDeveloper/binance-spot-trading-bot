@@ -70,6 +70,7 @@ echo "Telegram message preview TXT: reports/scanner_agent_telegram_message_previ
 echo "Telegram sender dry-run JSON: reports/scanner_agent_telegram_sender_dry_run.json"
 echo "Telegram sender result JSON: reports/scanner_agent_telegram_sender_result.json"
 echo "Telegram delivery text TXT: reports/scanner_agent_telegram_delivery_text.txt"
+echo "Telegram last sent hash JSON: reports/scanner_agent_last_sent_hash.json"
 
 echo
 echo "======================================"

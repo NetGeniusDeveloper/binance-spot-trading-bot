@@ -1,4 +1,6 @@
+import hashlib
 import json
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict
@@ -15,6 +17,7 @@ INPUT_PATH = Path("reports") / "scanner_agent_telegram_message_preview.txt"
 DECISION_PATH = Path("reports") / "scanner_agent_decision.json"
 OUTPUT_PATH = Path("reports") / "scanner_agent_telegram_sender_result.json"
 DELIVERY_TEXT_PATH = Path("reports") / "scanner_agent_telegram_delivery_text.txt"
+LAST_SENT_HASH_PATH = Path("reports") / "scanner_agent_last_sent_hash.json"
 
 MAX_TELEGRAM_MESSAGE_LENGTH = 4096
 
@@ -215,6 +218,7 @@ def build_base_payload(
         "decision_file": str(DECISION_PATH),
         "output_file": str(OUTPUT_PATH),
         "delivery_text_file": str(DELIVERY_TEXT_PATH),
+        "delivery_text_hash_file": str(LAST_SENT_HASH_PATH),
         "safe_to_continue": safe_to_continue,
         "telegram_token_configured": validation["telegram_token_configured"],
         "telegram_chat_configured": validation["telegram_chat_configured"],
@@ -274,6 +278,91 @@ def build_delivery_message_text(text: str) -> str:
 def save_delivery_text(text: str, path: Path = DELIVERY_TEXT_PATH) -> Path:
     path.parent.mkdir(exist_ok=True)
     path.write_text(text, encoding="utf-8")
+    return path
+
+
+def normalize_text_for_duplicate_check(text: str) -> str:
+    normalized_text = str(text).replace("\r\n", "\n").replace("\r", "\n").strip()
+
+    normalized_text = re.sub(
+        r"^Создано: .*$",
+        "Создано: <normalized>",
+        normalized_text,
+        flags=re.MULTILINE,
+    )
+
+    return normalized_text
+
+
+def calculate_text_hash(text: str) -> str:
+    normalized_text = normalize_text_for_duplicate_check(text)
+    return hashlib.sha256(normalized_text.encode("utf-8")).hexdigest()
+
+
+def load_last_sent_hash(path: Path = LAST_SENT_HASH_PATH) -> Dict[str, Any]:
+    if not path.exists():
+        return {
+            "ok": True,
+            "exists": False,
+            "last_sent_hash": None,
+            "last_sent_at": None,
+            "last_message_id": None,
+            "error": None,
+        }
+
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as ex:
+        return {
+            "ok": False,
+            "exists": True,
+            "last_sent_hash": None,
+            "last_sent_at": None,
+            "last_message_id": None,
+            "error": f"Invalid last sent hash JSON: {ex}",
+        }
+    except OSError as ex:
+        return {
+            "ok": False,
+            "exists": True,
+            "last_sent_hash": None,
+            "last_sent_at": None,
+            "last_message_id": None,
+            "error": f"Cannot read last sent hash JSON: {ex}",
+        }
+
+    return {
+        "ok": True,
+        "exists": True,
+        "last_sent_hash": payload.get("last_sent_hash"),
+        "last_sent_at": payload.get("last_sent_at") or payload.get("created_at"),
+        "last_message_id": payload.get("last_message_id"),
+        "error": None,
+    }
+
+
+def save_last_sent_hash(
+    delivery_text_hash: str,
+    send_result: Dict[str, Any],
+    path: Path = LAST_SENT_HASH_PATH,
+) -> Path:
+    path.parent.mkdir(exist_ok=True)
+
+    payload = {
+        "source": "scanner_agent_telegram_sender",
+        "created_at": datetime.now().isoformat(timespec="seconds"),
+        "last_sent_at": datetime.now().isoformat(timespec="seconds"),
+        "last_sent_hash": delivery_text_hash,
+        "last_message_id": send_result.get("message_id"),
+        "chat_id_masked": mask_secret(TELEGRAM_ALERT_CHAT_ID),
+        "note": "Prevents repeated sending of identical analytical Telegram notifications.",
+    }
+
+    path.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+
     return path
 
 
@@ -343,7 +432,17 @@ def build_sender_payload() -> Dict[str, Any]:
 
     text = build_delivery_message_text(str(message_result.get("text", "")))
     delivery_text_path = save_delivery_text(text)
+    delivery_text_hash = calculate_text_hash(text)
+    last_sent_hash = load_last_sent_hash()
+
     payload["delivery_text_file"] = str(delivery_text_path)
+    payload["delivery_text_hash_file"] = str(LAST_SENT_HASH_PATH)
+    payload["delivery_text_hash"] = delivery_text_hash
+    payload["last_sent_hash_exists"] = bool(last_sent_hash.get("exists"))
+    payload["last_sent_hash_ok"] = bool(last_sent_hash.get("ok"))
+    payload["last_sent_at"] = last_sent_hash.get("last_sent_at")
+    payload["last_sent_message_id"] = last_sent_hash.get("last_message_id")
+    payload["last_sent_hash_saved"] = False
 
     payload["message_length"] = len(text)
     payload["message_within_telegram_limit"] = len(text) <= MAX_TELEGRAM_MESSAGE_LENGTH
@@ -357,6 +456,25 @@ def build_sender_payload() -> Dict[str, Any]:
         payload["safe_to_continue"] = False
         return payload
 
+    if not last_sent_hash.get("ok"):
+        payload["warnings"].append("last_sent_hash_file_read_error")
+        payload["warnings"] = sorted(set(payload["warnings"]))
+
+    if (
+        last_sent_hash.get("ok")
+        and last_sent_hash.get("exists")
+        and last_sent_hash.get("last_sent_hash") == delivery_text_hash
+    ):
+        payload["blockers"].append("duplicate_delivery_text_hash")
+        payload["warnings"].append("send_not_attempted_because_duplicate_delivery_text")
+        payload["blockers"] = sorted(set(payload["blockers"]))
+        payload["warnings"] = sorted(set(payload["warnings"]))
+        payload["safe_to_continue"] = False
+        payload["telegram_api_used"] = False
+        payload["telegram_message_sent"] = False
+        payload["send_attempted"] = False
+        return payload
+
     payload["send_attempted"] = True
     payload["telegram_api_used"] = True
 
@@ -365,7 +483,11 @@ def build_sender_payload() -> Dict[str, Any]:
     payload["send_result"] = send_result
     payload["telegram_message_sent"] = bool(send_result.get("ok"))
 
-    if not send_result.get("ok"):
+    if send_result.get("ok"):
+        saved_hash_path = save_last_sent_hash(delivery_text_hash, send_result)
+        payload["delivery_text_hash_file"] = str(saved_hash_path)
+        payload["last_sent_hash_saved"] = True
+    else:
         payload["blockers"].append("telegram_send_failed")
         payload["blockers"] = sorted(set(payload["blockers"]))
         payload["error"] = send_result.get("error")
@@ -404,6 +526,12 @@ def print_sender_summary(payload: Dict[str, Any], output_path: Path) -> None:
     print("Decision file:", payload["decision_file"])
     print("Output file:", output_path)
     print("Delivery text file:", payload.get("delivery_text_file"))
+    print("Delivery hash file:", payload.get("delivery_text_hash_file"))
+    print("Delivery hash:", payload.get("delivery_text_hash"))
+    print("Last sent hash exists:", payload.get("last_sent_hash_exists"))
+    print("Last sent at:", payload.get("last_sent_at"))
+    print("Last sent message id:", payload.get("last_sent_message_id"))
+    print("Last sent hash saved:", payload.get("last_sent_hash_saved", False))
     print()
 
     print("SUMMARY")
