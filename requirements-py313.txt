@@ -1,0 +1,7 @@
+python-binance==1.0.16
+python-dotenv==0.20.0
+python-telegram-bot==13.13
+urllib3<2
+standard-imghdr
+numpy>=2.4.6
+pandas>=3.0.3

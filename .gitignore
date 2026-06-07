@@ -75,3 +75,20 @@ Thumbs.db
 .pytest_cache/
 .coverage
 htmlcov/
+
+# ==================================================
+# Local patch/temp files
+# ==================================================
+execute-times.tmp
+patch_*.py
+
+# ==================================================
+# Local markdown reports
+# ==================================================
+reports/*.md
+
+# ==================================================
+# Generated scanner channel previews/backups
+# ==================================================
+reports/scanner_real_channels.backup.py
+reports/scanner_real_channels.recommended.py
