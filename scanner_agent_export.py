@@ -160,9 +160,23 @@ def is_watchlist_candidate(signal: Dict[str, Any]) -> bool:
 def build_agent_item(signal: Dict[str, Any], export_group: str) -> Dict[str, Any]:
     agent_item = export_signal_for_agent(signal)
 
+    social_signal = signal.get("social_signal", {})
+    classification_summary = social_signal.get("message_classification_summary", {})
+
+    if not isinstance(classification_summary, dict):
+        classification_summary = {}
+
     agent_item["final_score"] = signal.get("final_score")
     agent_item["market_score"] = signal.get("market_score")
     agent_item["risk_adjustment"] = signal.get("risk_adjustment")
+
+    agent_item["message_intent"] = social_signal.get("message_intent")
+    agent_item["message_quality_score"] = social_signal.get("message_quality_score")
+    agent_item["message_score_adjustment"] = social_signal.get("message_score_adjustment")
+    agent_item["message_risk_flags"] = social_signal.get("message_risk_flags", [])
+    agent_item["message_reasons"] = classification_summary.get("reasons", [])
+    agent_item["message_intent_counts"] = classification_summary.get("counts_by_intent", {})
+
     agent_item["created_by"] = "scanner_agent_export"
     agent_item["export_group"] = export_group
     agent_item["analytical_only"] = True
