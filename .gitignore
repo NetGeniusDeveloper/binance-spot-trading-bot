@@ -39,3 +39,4 @@ reports/*.json
 reports/*.txt
 reports/*.log
 reports/*.recommended.py
+reports/*.backup.py

@@ -3,18 +3,14 @@ from typing import Any, Dict, List
 
 # Real public Telegram channels for analytical social scanner.
 #
-# Add only public channels that you are allowed to read.
+# Generated recommendation preview.
+# Review manually before replacing scanner_real_channels.py.
 #
 # Safety:
 # - analytical only;
 # - no orders;
 # - no trading bot launch;
 # - no private-channel bypassing.
-#
-# Notes:
-# - Channels below were selected by telegram_channel_selection_export.py
-#   after manual review of reports/telegram_channel_selection_export.txt.
-# - watcherGuru is not enabled yet because discovery classified it as watch_candidate.
 
 
 REAL_CHANNELS: List[Dict[str, Any]] = [
@@ -24,26 +20,34 @@ REAL_CHANNELS: List[Dict[str, Any]] = [
         "enabled": True,
         "weight": 1.0,
         "authority_score": 60,
+        # final_recommendation=keep
+        # reason=channel_quality_is_good
     },
     {
         "username": "binance_announcements",
         "title": "Binance Announcements",
-        "enabled": True,
-        "weight": 1.5,
-        "authority_score": 90,
+        "enabled": False,
+        "weight": 0.3,
+        "authority_score": 40,
+        # final_recommendation=disable
+        # reason=channel_quality_is_too_low_or_stale
     },
     {
         "username": "whale_alert",
         "title": "Whale Alert",
-        "enabled": True,
-        "weight": 1.3,
-        "authority_score": 80,
+        "enabled": False,
+        "weight": 0.3,
+        "authority_score": 40,
+        # final_recommendation=disable
+        # reason=channel_has_no_usable_recent_messages_in_quality_report
     },
     {
         "username": "cointelegraph",
         "title": "Cointelegraph",
         "enabled": True,
-        "weight": 1.15,
-        "authority_score": 70,
+        "weight": 0.9,
+        "authority_score": 60,
+        # final_recommendation=watch
+        # reason=channel_is_useful_but_should_have_lower_weight
     },
 ]
