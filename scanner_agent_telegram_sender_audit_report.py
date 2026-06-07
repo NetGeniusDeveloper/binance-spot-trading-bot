@@ -181,6 +181,27 @@ def build_audit_payload() -> Dict[str, Any]:
     if delivery_text_status["ok"] and not delivery_text_status["has_not_trading_signal_notice"]:
         warnings.append("delivery_text_missing_not_trading_signal_notice")
 
+    duplicate_delivery_text_blocked = (
+        "duplicate_delivery_text_hash" in blockers
+        and "send_not_attempted_because_duplicate_delivery_text" in warnings
+        and total_decisions > 0
+        and not send_attempted
+        and not telegram_message_sent
+        and not telegram_api_used
+    )
+
+    if duplicate_delivery_text_blocked:
+        blockers = [
+            blocker
+            for blocker in blockers
+            if blocker != "duplicate_delivery_text_hash"
+        ]
+        warnings = [
+            warning
+            for warning in warnings
+            if warning != "send_not_attempted_because_duplicate_delivery_text"
+        ]
+
     safety_ok = (
         bool_value(sender_data.get("analytical_only", True))
         and not bool_value(sender_data.get("orders_enabled"))
@@ -192,7 +213,9 @@ def build_audit_payload() -> Dict[str, Any]:
         and not blockers
     )
 
-    if telegram_message_sent:
+    if duplicate_delivery_text_blocked:
+        audit_status = "duplicate_blocked"
+    elif telegram_message_sent:
         audit_status = "sent_verified" if safety_ok else "sent_with_audit_warnings"
     elif send_attempted:
         audit_status = "send_attempt_failed"
@@ -206,6 +229,7 @@ def build_audit_payload() -> Dict[str, Any]:
         "created_at": datetime.now().isoformat(timespec="seconds"),
         "audit_status": audit_status,
         "safety_ok": safety_ok,
+        "duplicate_delivery_text_blocked": duplicate_delivery_text_blocked,
         "analytical_only": True,
         "orders_enabled": False,
         "trading_enabled": False,
@@ -236,6 +260,7 @@ def build_audit_payload() -> Dict[str, Any]:
             "telegram_api_used": telegram_api_used,
             "telegram_message_sent": telegram_message_sent,
             "send_attempted": send_attempted,
+            "duplicate_delivery_text_blocked": duplicate_delivery_text_blocked,
             "message_id": message_id,
             "chat_id_masked": send_result.get("chat_id_masked") or sender_data.get("telegram_alert_chat_id_masked"),
             "message_length": message_length,
@@ -296,6 +321,7 @@ def build_text_report(payload: Dict[str, Any]) -> str:
     lines.append(f"Telegram API used: {telegram.get('telegram_api_used')}")
     lines.append(f"Telegram message sent: {telegram.get('telegram_message_sent')}")
     lines.append(f"Send attempted: {telegram.get('send_attempted')}")
+    lines.append(f"Duplicate delivery text blocked: {telegram.get('duplicate_delivery_text_blocked')}")
     lines.append(f"Message ID: {telegram.get('message_id')}")
     lines.append(f"Chat ID masked: {telegram.get('chat_id_masked')}")
     lines.append(f"Message length: {telegram.get('message_length')}")
@@ -372,6 +398,7 @@ def print_audit_summary(payload: Dict[str, Any], json_path: Path, txt_path: Path
     print("Safety OK:", payload.get("safety_ok"))
     print("Telegram message sent:", telegram.get("telegram_message_sent"))
     print("Telegram API used:", telegram.get("telegram_api_used"))
+    print("Duplicate delivery text blocked:", telegram.get("duplicate_delivery_text_blocked"))
     print("Message ID:", telegram.get("message_id"))
     print("Message length:", telegram.get("message_length"))
     print("Message within Telegram limit:", telegram.get("message_within_telegram_limit"))

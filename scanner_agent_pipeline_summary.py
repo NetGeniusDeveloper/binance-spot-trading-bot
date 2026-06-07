@@ -141,6 +141,27 @@ def build_summary_payload() -> Dict[str, Any]:
     telegram_message_sent = bool_value(sender_data.get("telegram_message_sent", False))
     send_attempted = bool_value(sender_data.get("send_attempted", False))
 
+    duplicate_notification_blocked = (
+        "duplicate_delivery_text_hash" in blockers
+        and "send_not_attempted_because_duplicate_delivery_text" in warnings
+        and total_decisions > 0
+        and not telegram_message_sent
+        and not send_attempted
+        and not telegram_api_used
+    )
+
+    if duplicate_notification_blocked:
+        blockers = [
+            blocker
+            for blocker in blockers
+            if blocker != "duplicate_delivery_text_hash"
+        ]
+        warnings = [
+            warning
+            for warning in warnings
+            if warning != "send_not_attempted_because_duplicate_delivery_text"
+        ]
+
     if total_signals_loaded <= 0:
         final_status = "no_signals"
         final_note = "No scanner signals were loaded."
@@ -153,6 +174,9 @@ def build_summary_payload() -> Dict[str, Any]:
     elif telegram_message_sent:
         final_status = "notification_sent"
         final_note = "Analytical Telegram notification was sent. Orders remained disabled."
+    elif duplicate_notification_blocked:
+        final_status = "duplicate_notification_blocked"
+        final_note = "Duplicate analytical Telegram notification was safely blocked. Orders remained disabled."
     elif send_attempted and not telegram_message_sent:
         final_status = "notification_failed"
         final_note = "Telegram sending was attempted but failed. Check sender result."
@@ -231,6 +255,7 @@ def build_summary_payload() -> Dict[str, Any]:
             "telegram_api_used": telegram_api_used,
             "telegram_message_sent": telegram_message_sent,
             "send_attempted": send_attempted,
+            "duplicate_notification_blocked": duplicate_notification_blocked,
             "message_length": sender_data.get("message_length"),
             "message_within_telegram_limit": sender_data.get("message_within_telegram_limit"),
         },
@@ -305,6 +330,7 @@ def build_text_summary(payload: Dict[str, Any]) -> str:
     lines.append(f"Telegram API used: {telegram.get('telegram_api_used')}")
     lines.append(f"Telegram message sent: {telegram.get('telegram_message_sent')}")
     lines.append(f"Send attempted: {telegram.get('send_attempted')}")
+    lines.append(f"Duplicate notification blocked: {telegram.get('duplicate_notification_blocked')}")
     lines.append(f"Message length: {telegram.get('message_length')}")
     lines.append(f"Message within Telegram limit: {telegram.get('message_within_telegram_limit')}")
     lines.append("")
@@ -394,6 +420,7 @@ def print_summary(payload: Dict[str, Any], json_path: Path, txt_path: Path) -> N
     print("Ready for real sender now:", telegram.get("ready_for_real_sender_now"))
     print("Would send if enabled:", telegram.get("would_send_if_enabled"))
     print("Telegram message sent:", telegram.get("telegram_message_sent"))
+    print("Duplicate notification blocked:", telegram.get("duplicate_notification_blocked"))
 
     if payload.get("blockers"):
         print("Blockers:", ", ".join(str(item) for item in payload["blockers"]))

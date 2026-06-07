@@ -112,6 +112,7 @@ print("Decisions:", payload.get("decisions", {}).get("total_decisions"))
 print("Telegram send enabled:", payload.get("telegram", {}).get("telegram_send_enabled"))
 print("Telegram manual confirm:", payload.get("telegram", {}).get("telegram_manual_confirm"))
 print("Telegram message sent:", payload.get("telegram", {}).get("telegram_message_sent"))
+print("Duplicate notification blocked:", payload.get("telegram", {}).get("duplicate_notification_blocked"))
 
 blockers = payload.get("blockers", [])
 warnings = payload.get("warnings", [])
@@ -136,6 +137,7 @@ except Exception as ex:
 
 print("Telegram audit status:", payload.get("audit_status"))
 print("Telegram audit safety OK:", payload.get("safety_ok"))
+print("Telegram audit duplicate blocked:", payload.get("duplicate_delivery_text_blocked"))
 print("Telegram audit blockers:", ", ".join(payload.get("blockers", [])) or "none")
 print("Telegram audit warnings:", ", ".join(payload.get("warnings", [])) or "none")
 PY2
