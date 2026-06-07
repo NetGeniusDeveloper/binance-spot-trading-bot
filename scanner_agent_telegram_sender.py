@@ -488,9 +488,27 @@ def build_sender_payload() -> Dict[str, Any]:
         payload["delivery_text_hash_file"] = str(saved_hash_path)
         payload["last_sent_hash_saved"] = True
     else:
-        payload["blockers"].append("telegram_send_failed")
+        exception_type = str(send_result.get("exception_type") or "")
+        error_text = str(send_result.get("error") or "")
+        error_text_lower = error_text.lower()
+
+        delivery_timeout_unknown = (
+            exception_type in {"TimedOut", "TimeoutError", "ReadTimeout", "ConnectTimeout"}
+            or "timed out" in error_text_lower
+            or "timeout" in error_text_lower
+        )
+
+        if delivery_timeout_unknown:
+            payload["blockers"].append("telegram_delivery_timeout_unknown")
+            payload["warnings"].append("manual_telegram_chat_check_required")
+            payload["safe_to_continue"] = False
+            payload["error"] = error_text or "Telegram delivery timed out. Manual chat check required."
+        else:
+            payload["blockers"].append("telegram_send_failed")
+            payload["error"] = send_result.get("error")
+
         payload["blockers"] = sorted(set(payload["blockers"]))
-        payload["error"] = send_result.get("error")
+        payload["warnings"] = sorted(set(payload["warnings"]))
 
     return payload
 
