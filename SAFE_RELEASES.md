@@ -29,15 +29,15 @@ The project works in safe analytical mode:
 Current stable baseline before installing this English documentation pack:
 
 ```text
-tag: scanner-safe-project-status-v1
-commit: ea6a4b4
+tag: scanner-safe-docs-map-v1
+commit: a4a8e0c
 branch: main
 ```
 
 Description:
 
 ```text
-Stable release map updated after SAFE_RELEASES.md and README release link work.
+Stable build with README.md Documentation map added.
 ```
 
 Recommended new tag after installing, committing, and validating this English documentation pack:
@@ -666,7 +666,7 @@ Run full validation, commit README.md CRON_SETUP.md SAFE_RELEASES.md, push to Gi
 Purpose:
 
 ```text
-Stable build with PROJECT_STATUS.md added as a short current project status summary.
+Stable build with README.md Documentation map added.
 ```
 
 What was added:
@@ -736,5 +736,86 @@ Commands:
 ```bash
 git tag -a scanner-safe-project-status-map-v2 -m "Stable release map with project status"
 git push origin scanner-safe-project-status-map-v2
+```
+
+### scanner-safe-docs-map-v1
+
+Purpose:
+
+```text
+Stable build with Documentation map added to README.md.
+```
+
+What was added:
+
+- `Documentation map` section in `README.md`;
+- short list of core documentation files;
+- purpose of each documentation file;
+- current stable map tag reference in README.
+
+Key files:
+
+```text
+README.md
+CRON_SETUP.md
+SAFE_RELEASES.md
+PROJECT_STATUS.md
+```
+
+Documentation map contents:
+
+```text
+README.md — main project overview and safe usage guide
+CRON_SETUP.md — safe cron setup instructions
+SAFE_RELEASES.md — stable releases, tags, and rollback map
+PROJECT_STATUS.md — short current project status summary
+```
+
+Verification:
+
+```bash
+cd /root/binance-spot-trading-bot
+
+git status
+grep -n "Documentation map\|SAFE_RELEASES\|PROJECT_STATUS\|scanner-safe-project-status-map-v2" README.md
+grep -n "scanner-safe-docs-map-v1\|a4a8e0c" SAFE_RELEASES.md
+git tag --list
+git log --oneline -5
+```
+
+Expected result:
+
+```text
+On branch main
+Your branch is up to date with 'origin/main'.
+nothing to commit, working tree clean
+```
+
+Stable point:
+
+```text
+tag: scanner-safe-docs-map-v1
+commit: a4a8e0c
+branch: main
+```
+
+---
+
+## Recommended next stable map tag
+
+After committing this SAFE_RELEASES.md update, create a new tag because
+`scanner-safe-docs-map-v1` already points to the README Documentation map commit.
+
+Recommended new tag for the updated release map:
+
+```text
+scanner-safe-docs-map-v2
+```
+
+Commands:
+
+```bash
+git tag -a scanner-safe-docs-map-v2 -m "Stable release map with README documentation map"
+git push origin scanner-safe-docs-map-v2
 ```
 
