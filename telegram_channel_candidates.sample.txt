@@ -1,0 +1,13 @@
+# Public Telegram channels for safe analytical discovery.
+# Copy needed lines to:
+# data/telegram_channel_candidates.txt
+#
+# Only public channels.
+# No private-channel bypassing.
+# Analytical only.
+
+test_binance_channell
+binance_announcements
+cointelegraph
+watcherGuru
+whale_alert

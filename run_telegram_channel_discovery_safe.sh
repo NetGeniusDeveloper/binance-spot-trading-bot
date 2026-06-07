@@ -23,6 +23,7 @@ echo "======================================"
 python -m py_compile \
   credentials.py \
   telegram_connection_test.py \
+  binance_symbol_universe.py \
   telegram_channel_discovery_safe.py
 
 echo "[OK] Python files compiled successfully"

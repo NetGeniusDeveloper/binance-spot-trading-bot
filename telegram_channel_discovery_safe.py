@@ -11,6 +11,7 @@ from credentials import (
     TELEGRAM_SESSION_NAME,
 )
 from telegram_connection_test import run_connection_test_async
+from binance_symbol_universe import load_symbol_universe
 
 
 CANDIDATES_PATH = Path("data") / "telegram_channel_candidates.txt"
@@ -44,6 +45,14 @@ CRYPTO_KEYWORDS = {
 
 TICKER_PATTERN = re.compile(
     r"(?<![A-Z0-9])(?:\$|#)?([A-Z]{2,12})(?:/USDT|USDT|/USD|USD)?(?![A-Z0-9])"
+)
+
+PAIR_TICKER_PATTERN = re.compile(
+    r"(?<![A-Z0-9])(?:\$|#)?([A-Z0-9]{2,12})(?:[/_-]?(USDT|USDC|USD|BTC|ETH|BNB))(?![A-Z0-9])"
+)
+
+STANDALONE_TICKER_PATTERN = re.compile(
+    r"(?<![A-Z0-9])(?:\$|#)?([A-Z0-9]{2,12})(?![A-Z0-9])"
 )
 
 NOISE_TICKERS = {
@@ -105,23 +114,83 @@ def load_candidate_usernames(path: Path = CANDIDATES_PATH) -> List[str]:
     return usernames
 
 
-def extract_tickers(text: str) -> List[str]:
+def normalize_allowed_set(value: Any) -> set[str]:
+    if not value:
+        return set()
+
+    if isinstance(value, (list, tuple, set)):
+        return {str(item).upper().strip() for item in value if str(item).strip()}
+
+    return set()
+
+
+def add_ticker_if_allowed(
+    found: List[str],
+    ticker: str,
+    allowed_base_assets: set[str],
+) -> None:
+    normalized = str(ticker or "").upper().strip()
+
+    if not normalized:
+        return
+
+    if normalized in NOISE_TICKERS:
+        return
+
+    if len(normalized) < 2:
+        return
+
+    if allowed_base_assets and normalized not in allowed_base_assets:
+        return
+
+    if normalized not in found:
+        found.append(normalized)
+
+
+def extract_tickers(
+    text: str,
+    allowed_base_assets: Any = None,
+    allowed_symbols: Any = None,
+) -> List[str]:
     found: List[str] = []
+    upper_text = str(text or "").upper()
 
-    for match in TICKER_PATTERN.findall(str(text or "").upper()):
-        ticker = match.strip().upper()
+    allowed_bases = normalize_allowed_set(allowed_base_assets)
+    allowed_pairs = normalize_allowed_set(allowed_symbols)
 
-        if not ticker:
+    for base, quote in PAIR_TICKER_PATTERN.findall(upper_text):
+        pair = (str(base) + str(quote)).upper()
+
+        if allowed_pairs and pair not in allowed_pairs:
             continue
 
-        if ticker in NOISE_TICKERS:
+        add_ticker_if_allowed(
+            found=found,
+            ticker=base,
+            allowed_base_assets=allowed_bases,
+        )
+
+    for match in STANDALONE_TICKER_PATTERN.findall(upper_text):
+        ticker = str(match).upper().strip()
+
+        if ticker.endswith("USDT") and len(ticker) > 4:
+            base = ticker[:-4]
+            pair = ticker
+
+            if allowed_pairs and pair in allowed_pairs:
+                add_ticker_if_allowed(
+                    found=found,
+                    ticker=base,
+                    allowed_base_assets=allowed_bases,
+                )
+
             continue
 
-        if len(ticker) < 2:
-            continue
-
-        if ticker not in found:
-            found.append(ticker)
+        add_ticker_if_allowed(
+            found=found,
+            ticker=ticker,
+            allowed_base_assets=allowed_bases,
+        )
 
     return found
 
@@ -143,6 +212,8 @@ def score_channel(
     verified: bool,
     scam: bool,
     fake: bool,
+    allowed_base_assets: Any = None,
+    allowed_symbols: Any = None,
 ) -> Dict[str, Any]:
     ticker_hits: Dict[str, int] = {}
     keyword_hits = 0
@@ -152,7 +223,11 @@ def score_channel(
         text = str(message.get("text", ""))
         keyword_hits += count_crypto_keywords(text)
 
-        for ticker in extract_tickers(text):
+        for ticker in extract_tickers(
+            text,
+            allowed_base_assets=allowed_base_assets,
+            allowed_symbols=allowed_symbols,
+        ):
             ticker_hits[ticker] = ticker_hits.get(ticker, 0) + 1
 
     unique_tickers = sorted(ticker_hits)
@@ -286,6 +361,7 @@ async def run_channel_discovery_async(
         return build_not_ready_payload(connection_result)
 
     usernames = load_candidate_usernames()
+    symbol_universe = load_symbol_universe()
 
     payload: Dict[str, Any] = {
         "source": "telegram_channel_discovery_safe",
@@ -302,6 +378,10 @@ async def run_channel_discovery_async(
         "output_json": str(OUTPUT_JSON_PATH),
         "output_txt": str(OUTPUT_TXT_PATH),
         "limit_per_channel": int(limit_per_channel),
+        "symbol_universe_source": symbol_universe.get("source"),
+        "symbol_universe_fallback": bool(symbol_universe.get("fallback", False)),
+        "symbol_universe_base_assets_count": int(symbol_universe.get("base_assets_count") or 0),
+        "symbol_universe_symbols_count": int(symbol_universe.get("symbols_count") or 0),
         "candidates_loaded": len(usernames),
         "channels_checked": 0,
         "channels_ok": 0,
@@ -365,6 +445,8 @@ async def run_channel_discovery_async(
                     verified=verified,
                     scam=scam,
                     fake=fake,
+                    allowed_base_assets=symbol_universe.get("base_assets", []),
+                    allowed_symbols=symbol_universe.get("symbols", []),
                 )
 
                 item = {
