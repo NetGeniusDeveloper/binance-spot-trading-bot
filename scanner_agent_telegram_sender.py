@@ -148,6 +148,29 @@ def build_base_payload(
     }
 
 
+def build_delivery_message_text(text: str) -> str:
+    """
+    Convert local preview text into real Telegram delivery text.
+
+    Preview file stays safe and says that sending is disabled.
+    Only this sender, after all checks and SCANNER_TELEGRAM_SEND_ENABLED=true,
+    changes the delivery line before sending.
+    """
+    delivery_text = str(text)
+
+    delivery_text = delivery_text.replace(
+        "Telegram send: отключён",
+        "Доставка: Telegram, сообщение отправляется по разрешению SCANNER_TELEGRAM_SEND_ENABLED=true",
+    )
+
+    delivery_text = delivery_text.replace(
+        "Доставка: preview, сообщение не отправлено",
+        "Доставка: Telegram, сообщение отправляется по разрешению SCANNER_TELEGRAM_SEND_ENABLED=true",
+    )
+
+    return delivery_text
+
+
 def send_telegram_message(text: str) -> Dict[str, Any]:
     try:
         import telegram
@@ -193,7 +216,16 @@ def build_sender_payload() -> Dict[str, Any]:
         payload["warnings"].append("send_not_attempted_because_scanner_telegram_send_enabled_is_false")
         return payload
 
-    text = str(message_result.get("text", ""))
+    text = build_delivery_message_text(str(message_result.get("text", "")))
+
+    payload["message_length"] = len(text)
+    payload["message_within_telegram_limit"] = len(text) <= MAX_TELEGRAM_MESSAGE_LENGTH
+    payload["message_preview"] = text[:1000]
+
+    if len(text) > MAX_TELEGRAM_MESSAGE_LENGTH:
+        payload["blockers"].append("delivery_message_is_longer_than_telegram_limit")
+        payload["warnings"].append("send_not_attempted_because_delivery_message_is_too_long")
+        return payload
 
     payload["send_attempted"] = True
     payload["telegram_api_used"] = True

@@ -152,7 +152,7 @@ def build_telegram_preview_text(payload: Dict[str, Any]) -> str:
     lines.append(f"Создано: {created_at}")
     lines.append("Режим: аналитика без торговли")
     lines.append("Ордера: отключены")
-    lines.append("Telegram send: отключён")
+    lines.append("Доставка: preview, сообщение не отправлено")
     lines.append("Binance orders: отключены")
     lines.append("")
     lines.append("Сводка:")
