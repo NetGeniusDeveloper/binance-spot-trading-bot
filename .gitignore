@@ -92,3 +92,13 @@ reports/*.md
 # ==================================================
 reports/scanner_real_channels.backup.py
 reports/scanner_real_channels.recommended.py
+
+# ==================================================
+# Local data/runtime files
+# ==================================================
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+data/*.csv
+data/*.old.csv
+data/*.txt
