@@ -264,11 +264,13 @@ def build_decision_payload(export_payload: Dict[str, Any]) -> Dict[str, Any]:
 
     for item in candidates:
         if isinstance(item, dict):
-            decisions.append(decide_item(item, source_group="candidate"))
+            source_group = str(item.get("export_group") or "candidate")
+            decisions.append(decide_item(item, source_group=source_group))
 
     for item in watchlist_candidates:
         if isinstance(item, dict):
-            decisions.append(decide_item(item, source_group="watchlist"))
+            source_group = str(item.get("export_group") or "watchlist")
+            decisions.append(decide_item(item, source_group=source_group))
 
     decisions.sort(
         key=lambda item: (
