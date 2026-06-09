@@ -172,6 +172,138 @@ def count_by_field(items: List[Dict[str, Any]], field_name: str) -> Dict[str, in
     return dict(sorted(summary.items()))
 
 
+def classify_decision_bucket(item: Dict[str, Any]) -> str:
+    decision = str(item.get("decision") or "").strip()
+    action_hint = str(item.get("action_hint") or "").strip()
+    order_execution_allowed = item.get("order_execution_allowed") is True
+
+    if order_execution_allowed and decision == "candidate":
+        return "ENTRY_ALLOWED"
+
+    if decision in {"blocked_risk", "ignore"}:
+        return "BLOCKED"
+
+    if action_hint == "entry_forbidden":
+        return "BLOCKED"
+
+    return "WATCH"
+
+
+def build_decision_table_rows(decisions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    rows: List[Dict[str, Any]] = []
+
+    for item in decisions:
+        bucket = classify_decision_bucket(item)
+        rows.append(
+            {
+                "bucket": bucket,
+                "pair": str(item.get("pair") or "unknown"),
+                "decision": str(item.get("decision") or "unknown"),
+                "group": normalize_source_group(item.get("source_group")),
+                "priority": safe_int(item.get("priority"), 0),
+                "final_score": safe_float(item.get("final_score"), 0.0),
+                "market_score": safe_float(item.get("market_score"), 0.0),
+                "telegram_score": safe_float(item.get("telegram_score"), 0.0),
+                "risk_level": str(item.get("risk_level") or "unknown"),
+                "risk_flags": format_list(item.get("risk_flags")),
+                "action_hint": str(item.get("action_hint") or "unknown"),
+                "next_step": str(item.get("recommended_next_step") or "manual review"),
+            }
+        )
+
+    rows.sort(
+        key=lambda row: (
+            {"ENTRY_ALLOWED": 3, "WATCH": 2, "BLOCKED": 1}.get(row["bucket"], 0),
+            row["priority"],
+            row["final_score"],
+        ),
+        reverse=True,
+    )
+
+    return rows
+
+
+def count_by_bucket(rows: List[Dict[str, Any]]) -> Dict[str, int]:
+    result = {
+        "ENTRY_ALLOWED": 0,
+        "WATCH": 0,
+        "BLOCKED": 0,
+    }
+
+    for row in rows:
+        bucket = str(row.get("bucket") or "WATCH")
+        result[bucket] = result.get(bucket, 0) + 1
+
+    return result
+
+
+def format_table_cell(value: Any, width: int) -> str:
+    text = str(value)
+
+    if len(text) > width:
+        return text[: max(width - 1, 0)] + "…"
+
+    return text.ljust(width)
+
+
+def print_decision_status_table(decisions: List[Dict[str, Any]]) -> None:
+    rows = build_decision_table_rows(decisions)
+
+    print()
+    print("DECISION STATUS TABLE")
+    print("=====================")
+    print("Buckets: ENTRY_ALLOWED = analytical candidate only; WATCH = observe/retest/confirm; BLOCKED = do not enter.")
+
+    if not rows:
+        print("No decisions.")
+        return
+
+    summary = count_by_bucket(rows)
+    print("Summary by bucket:", summary)
+    print()
+
+    columns = [
+        ("bucket", 13),
+        ("pair", 10),
+        ("decision", 17),
+        ("group", 15),
+        ("priority", 8),
+        ("final_score", 7),
+        ("market_score", 7),
+        ("telegram_score", 8),
+        ("risk_level", 8),
+        ("action_hint", 16),
+    ]
+
+    header = " | ".join(format_table_cell(name, width) for name, width in columns)
+    separator = "-+-".join("-" * width for _, width in columns)
+
+    print(header)
+    print(separator)
+
+    for row in rows:
+        printable = dict(row)
+        printable["final_score"] = round(float(row["final_score"]), 2)
+        printable["market_score"] = round(float(row["market_score"]), 2)
+        printable["telegram_score"] = round(float(row["telegram_score"]), 2)
+
+        print(
+            " | ".join(
+                format_table_cell(printable.get(name), width)
+                for name, width in columns
+            )
+        )
+
+    print()
+    print("Decision notes:")
+
+    for row in rows:
+        print(
+            f"- {row['bucket']} {row['pair']}: "
+            f"risks={row['risk_flags']}; next={row['next_step']}"
+        )
+
+
 def print_decision_line(item: Dict[str, Any]) -> None:
     print(
         str(item.get("pair")).ljust(10),
@@ -483,6 +615,7 @@ def main() -> None:
         decisions = []
 
     print_payload_summary(payload, decisions)
+    print_decision_status_table(decisions)
     print_source_group_summary(decisions)
     print_grouped_by_decision(decisions)
     print_grouped_by_source(decisions)
