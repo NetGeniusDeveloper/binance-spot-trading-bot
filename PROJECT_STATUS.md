@@ -26,7 +26,7 @@ It must not:
 
 Current stable tag:
 
-```text
+scanner-safe-helper-check-docs-v1
 scanner-safe-status-release-tool-v1
 ```
 
@@ -67,6 +67,7 @@ The current baseline confirms:
 - ready_for_manual_review is treated as a safe manual-review state when orders and Telegram delivery remain disabled.
 - cron safe wrapper accepts safe_manual_review as a successful safe completion when Safety gate OK is True.
 - safe_status_release.sh can run a safe snapshot, verify safety gate, commit, push, and create an explicit tag.
+- safe_status_release.sh supports --check-only and --with-docs conveyor mode for safer one-command project releases.
 
 Tracked secret-like file review:
 
