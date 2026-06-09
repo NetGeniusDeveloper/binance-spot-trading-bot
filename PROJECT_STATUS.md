@@ -27,13 +27,13 @@ It must not:
 Current stable tag:
 
 ```text
-scanner-safe-secret-hygiene-v1
+scanner-safe-daily-runner-manual-review-v1
 ```
 
 Stable commit:
 
 ```text
-138b027
+7930bbe
 ```
 
 Branch:
@@ -62,7 +62,9 @@ The current baseline confirms:
 - Binance private keys are not required for safe DRY_RUN development;
 - `.env` is ignored by Git;
 - `.env.sample` documents the required safe environment variables;
-- scanner Telegram delivery remains blocked unless both explicit safety flags are enabled.
+- scanner Telegram delivery remains blocked unless both explicit safety flags are enabled;
+- daily safe runner disables Telegram delivery by default even if local .env flags are enabled;
+- ready_for_manual_review is treated as a safe manual-review state when orders and Telegram delivery remain disabled.
 
 Tracked secret-like file review:
 
@@ -152,6 +154,7 @@ Allowed safe states:
 
 ```text
 safe
+safe_manual_review
 duplicate_blocked
 no_decisions
 no_signals
@@ -188,6 +191,12 @@ SCANNER_TELEGRAM_SEND_ENABLED=false
 SCANNER_TELEGRAM_MANUAL_CONFIRM=false
 ```
 
+The daily safe runner also forces Telegram delivery off by default. To allow analytical Telegram delivery for that runner, start it explicitly with:
+
+```bash
+ALLOW_TELEGRAM_SEND_IN_DAILY_SAFE_RUN=true ./run_daily_scanner_agent_safe.sh
+```
+
 ---
 
 ## Blocked risk rule
@@ -210,7 +219,7 @@ Continue development only from a clean Git state.
 Current recommended stable base:
 
 ```text
-scanner-safe-secret-hygiene-v1
+scanner-safe-daily-runner-manual-review-v1
 ```
 
 Before changing code or documentation:

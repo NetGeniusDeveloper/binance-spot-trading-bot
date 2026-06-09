@@ -905,3 +905,77 @@ git tag -a scanner-safe-project-status-secret-hygiene-v1 -m "Stable project stat
 git push origin scanner-safe-project-status-secret-hygiene-v1
 ```
 
+---
+
+### scanner-safe-daily-runner-manual-review-v1
+
+Purpose:
+
+Stable daily safe runner with manual-review safety state.
+
+What was changed:
+
+- run_daily_scanner_agent_safe.sh now disables scanner Telegram delivery by default, even if local .env enables Telegram sender flags;
+- analytical Telegram delivery from the daily safe runner now requires explicit launch with ALLOW_TELEGRAM_SEND_IN_DAILY_SAFE_RUN=true;
+- stale Telegram audit output is avoided when the current run has no decisions;
+- scanner_agent_safety_gate_report.py now treats ready_for_manual_review as safe_manual_review when no dangerous runtime flags are present;
+- safe_manual_review means analytical decisions exist, Telegram delivery stayed disabled, and manual review is required.
+
+Key files:
+
+- run_daily_scanner_agent_safe.sh
+- scanner_agent_safety_gate_report.py
+
+Safety result:
+
+Final status: ready_for_manual_review
+Gate status: safe_manual_review
+Safety gate OK: True
+Review required: True
+Telegram send enabled: False
+Scanner Telegram send enabled: False
+Telegram message sent: False
+Orders enabled: False
+Trading enabled: False
+Binance orders created: False
+
+Validation:
+
+1. cd /root/binance-spot-trading-bot
+2. source .venv/bin/activate
+3. bash -n run_daily_scanner_agent_safe.sh
+4. python -m py_compile scanner_agent_safety_gate_report.py
+5. ./run_daily_scanner_agent_safe.sh
+6. cat reports/scanner_agent_pipeline_summary.txt
+7. cat reports/scanner_agent_safety_gate_report.txt
+8. cat reports/scanner_agent_blocked_risk_report.txt
+
+Expected result:
+
+Gate status: safe_manual_review
+Safety gate OK: True
+Review required: True
+Telegram message sent: False
+Orders enabled: False
+Trading enabled: False
+Binance orders created: False
+
+Stable point:
+
+tag: scanner-safe-daily-runner-manual-review-v1
+commit: 7930bbe
+branch: main
+
+---
+
+## Recommended next stable status tag
+
+After committing this documentation status update, create a new tag:
+
+scanner-safe-project-status-daily-runner-manual-review-v1
+
+Commands:
+
+git tag -a scanner-safe-project-status-daily-runner-manual-review-v1 -m "Stable project status after daily safe runner manual review baseline"
+git push origin scanner-safe-project-status-daily-runner-manual-review-v1
+
