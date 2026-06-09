@@ -7,6 +7,17 @@ if [ -d ".venv" ]; then
   source .venv/bin/activate
 fi
 
+# Safe daily runner default:
+# Telegram delivery is disabled even if local .env contains enabled flags.
+# To allow analytical Telegram delivery for this runner, explicitly run:
+# ALLOW_TELEGRAM_SEND_IN_DAILY_SAFE_RUN=true ./run_daily_scanner_agent_safe.sh
+ALLOW_TELEGRAM_SEND_IN_DAILY_SAFE_RUN="${ALLOW_TELEGRAM_SEND_IN_DAILY_SAFE_RUN:-false}"
+
+if [ "${ALLOW_TELEGRAM_SEND_IN_DAILY_SAFE_RUN}" != "true" ]; then
+  export SCANNER_TELEGRAM_SEND_ENABLED="false"
+  export SCANNER_TELEGRAM_MANUAL_CONFIRM="false"
+fi
+
 mkdir -p reports
 
 LOG_FILE="reports/daily_scanner_agent_pipeline.log"
@@ -56,7 +67,46 @@ echo
 echo "======================================"
 echo "3A. TELEGRAM SENDER AUDIT GENERATION"
 echo "======================================"
-python scanner_agent_telegram_sender_audit_report.py || echo "[WARN] Telegram sender audit report failed"
+
+SKIP_TELEGRAM_AUDIT=$(python - <<'PYAUDIT'
+import json
+from pathlib import Path
+
+path = Path("reports/scanner_agent_pipeline_summary.json")
+
+if not path.exists():
+    print("false")
+    raise SystemExit
+
+try:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+except Exception:
+    print("false")
+    raise SystemExit
+
+telegram = payload.get("telegram", {})
+
+if not isinstance(telegram, dict):
+    telegram = {}
+
+ignored = bool(telegram.get("sender_result_ignored_because_no_decisions"))
+final_status = str(payload.get("final_status", ""))
+
+if ignored and final_status == "no_decisions":
+    print("true")
+else:
+    print("false")
+PYAUDIT
+)
+
+if [ "${SKIP_TELEGRAM_AUDIT}" = "true" ]; then
+  echo "[OK] Telegram sender audit skipped for current run."
+  echo "[OK] Current pipeline has no decisions."
+  echo "[OK] Any old Telegram sender result is intentionally ignored."
+  echo "[OK] No Telegram message was sent by the current safe daily run."
+else
+  python scanner_agent_telegram_sender_audit_report.py || echo "[WARN] Telegram sender audit report failed"
+fi
 
 echo
 echo "======================================"

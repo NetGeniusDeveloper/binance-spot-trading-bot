@@ -258,17 +258,26 @@ def build_safety_gate_payload() -> Dict[str, Any]:
     elif final_status in safe_terminal_statuses:
         gate_status = "safe"
         gate_note = "Pipeline ended in a safe analytical state. Orders remained disabled."
+    elif final_status == "ready_for_manual_review":
+        gate_status = "safe_manual_review"
+        gate_note = (
+            "Analytical decisions exist and require manual review. "
+            "Telegram delivery remained disabled and orders remained disabled."
+        )
     else:
         gate_status = "review_required"
         gate_note = "Pipeline is not blocked, but the final state requires manual review."
 
-    review_required = gate_status == "review_required" or bool(warnings)
+    review_required = gate_status in {"review_required", "safe_manual_review"} or bool(warnings)
 
     if gate_status == "safe" and review_required:
-        gate_status = "review_required"
-        gate_note = "Pipeline is safe, but warnings require manual review."
+        gate_status = "safe_manual_review"
+        gate_note = (
+            "Pipeline is safe, but warnings require manual review. "
+            "Orders remained disabled."
+        )
 
-    safety_gate_ok = gate_status in {"safe", "duplicate_blocked"}
+    safety_gate_ok = gate_status in {"safe", "duplicate_blocked", "safe_manual_review"}
 
     return {
         "source": "scanner_agent_safety_gate_report",
