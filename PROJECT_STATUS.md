@@ -27,13 +27,13 @@ It must not:
 Current stable tag:
 
 ```text
-scanner-safe-daily-runner-manual-review-v1
+scanner-safe-cron-manual-review-v1
 ```
 
 Stable commit:
 
 ```text
-7930bbe
+19029c5
 ```
 
 Branch:
@@ -65,6 +65,7 @@ The current baseline confirms:
 - scanner Telegram delivery remains blocked unless both explicit safety flags are enabled;
 - daily safe runner disables Telegram delivery by default even if local .env flags are enabled;
 - ready_for_manual_review is treated as a safe manual-review state when orders and Telegram delivery remain disabled.
+- cron safe wrapper accepts safe_manual_review as a successful safe completion when Safety gate OK is True.
 
 Tracked secret-like file review:
 
@@ -219,7 +220,7 @@ Continue development only from a clean Git state.
 Current recommended stable base:
 
 ```text
-scanner-safe-daily-runner-manual-review-v1
+scanner-safe-cron-manual-review-v1
 ```
 
 Before changing code or documentation:

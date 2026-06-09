@@ -979,3 +979,74 @@ Commands:
 git tag -a scanner-safe-project-status-daily-runner-manual-review-v1 -m "Stable project status after daily safe runner manual review baseline"
 git push origin scanner-safe-project-status-daily-runner-manual-review-v1
 
+---
+
+### scanner-safe-cron-manual-review-v1
+
+Purpose:
+
+Stable cron wrapper with safe manual-review status.
+
+What was changed:
+
+- run_daily_scanner_agent_cron_safe.sh now accepts safe_manual_review as a successful safe completion when Safety gate OK is True;
+- cron wrapper logs manual-review state as a warning, not as a failure;
+- cron wrapper still fails when dangerous runtime flags, blockers, or failed safety states are detected;
+- orders remain disabled;
+- trading bot remains disabled;
+- Telegram delivery remains disabled unless explicitly allowed by safe runner rules.
+
+Key file:
+
+- run_daily_scanner_agent_cron_safe.sh
+
+Safety result:
+
+Safety gate status: safe_manual_review
+Safety gate OK: True
+Review required: True
+Telegram message sent: False
+Orders enabled: False
+Trading enabled: False
+Binance orders created: False
+Cron safe wrapper completed successfully
+
+Validation:
+
+1. cd /root/binance-spot-trading-bot
+2. source .venv/bin/activate
+3. bash -n run_daily_scanner_agent_cron_safe.sh
+4. bash -n run_daily_scanner_agent_safe.sh
+5. ./run_daily_scanner_agent_cron_safe.sh
+6. tail -n 120 reports/daily_scanner_agent_cron_safe.log
+7. cat reports/scanner_agent_safety_gate_report.txt
+
+Expected result:
+
+Safety gate status: safe_manual_review
+Safety gate OK: True
+Review required: True
+Cron safe wrapper completed successfully
+No orders were created
+Trading bot was not started
+Binance orders stayed disabled
+
+Stable point:
+
+tag: scanner-safe-cron-manual-review-v1
+commit: 19029c5
+branch: main
+
+---
+
+## Recommended next stable status tag
+
+After committing this documentation status update, create a new tag:
+
+scanner-safe-project-status-cron-manual-review-v1
+
+Commands:
+
+git tag -a scanner-safe-project-status-cron-manual-review-v1 -m "Stable project status after cron safe manual review baseline"
+git push origin scanner-safe-project-status-cron-manual-review-v1
+
