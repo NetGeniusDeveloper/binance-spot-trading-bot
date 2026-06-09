@@ -3,19 +3,69 @@ set -euo pipefail
 
 PROJECT_DIR="/root/binance-spot-trading-bot"
 
-TAG_NAME="${1:-}"
-COMMIT_MESSAGE="${2:-}"
+CHECK_ONLY="false"
+WITH_DOCS="false"
+TAG_NAME=""
+COMMIT_MESSAGE=""
 
-if [ -z "${TAG_NAME}" ]; then
-  echo "[ERROR] Missing tag name."
-  echo "Usage: ./safe_status_release.sh <tag-name> \"<commit message>\""
+usage() {
+  echo "Usage:"
+  echo "  ./safe_status_release.sh --check-only"
+  echo "  ./safe_status_release.sh <tag-name> \"<commit message>\""
+  echo "  ./safe_status_release.sh --with-docs <tag-name> \"<commit message>\""
+  echo
+  echo "Examples:"
+  echo "  ./safe_status_release.sh --check-only"
+  echo "  ./safe_status_release.sh scanner-safe-example-v1 \"Describe safe release\""
+  echo "  ./safe_status_release.sh --with-docs scanner-safe-example-v1 \"Describe safe release\""
+}
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --check-only)
+      CHECK_ONLY="true"
+      shift
+      ;;
+    --with-docs)
+      WITH_DOCS="true"
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      if [ -z "${TAG_NAME}" ]; then
+        TAG_NAME="$1"
+      elif [ -z "${COMMIT_MESSAGE}" ]; then
+        COMMIT_MESSAGE="$1"
+      else
+        echo "[ERROR] Unexpected argument: $1"
+        usage
+        exit 2
+      fi
+      shift
+      ;;
+  esac
+done
+
+if [ "${CHECK_ONLY}" = "true" ] && [ "${WITH_DOCS}" = "true" ]; then
+  echo "[ERROR] --check-only and --with-docs cannot be used together."
   exit 2
 fi
 
-if [ -z "${COMMIT_MESSAGE}" ]; then
-  echo "[ERROR] Missing commit message."
-  echo "Usage: ./safe_status_release.sh <tag-name> \"<commit message>\""
-  exit 2
+if [ "${CHECK_ONLY}" != "true" ]; then
+  if [ -z "${TAG_NAME}" ]; then
+    echo "[ERROR] Missing tag name."
+    usage
+    exit 2
+  fi
+
+  if [ -z "${COMMIT_MESSAGE}" ]; then
+    echo "[ERROR] Missing commit message."
+    usage
+    exit 2
+  fi
 fi
 
 cd "${PROJECT_DIR}"
@@ -24,12 +74,32 @@ if [ -d ".venv" ]; then
   source .venv/bin/activate
 fi
 
+DOC_TAG_NAME=""
+
+if [ "${WITH_DOCS}" = "true" ]; then
+  if [[ "${TAG_NAME}" == scanner-safe-* ]]; then
+    DOC_TAG_NAME="scanner-safe-project-status-${TAG_NAME#scanner-safe-}"
+  else
+    DOC_TAG_NAME="${TAG_NAME}-project-status"
+  fi
+fi
+
 echo "======================================"
 echo "SAFE STATUS RELEASE SNAPSHOT"
 echo "======================================"
 echo "Project: ${PROJECT_DIR}"
-echo "Tag: ${TAG_NAME}"
-echo "Commit message: ${COMMIT_MESSAGE}"
+echo "Mode check-only: ${CHECK_ONLY}"
+echo "Mode with-docs: ${WITH_DOCS}"
+
+if [ "${CHECK_ONLY}" != "true" ]; then
+  echo "Tag: ${TAG_NAME}"
+  echo "Commit message: ${COMMIT_MESSAGE}"
+fi
+
+if [ "${WITH_DOCS}" = "true" ]; then
+  echo "Documentation tag: ${DOC_TAG_NAME}"
+fi
+
 echo "Started at: $(date -Iseconds)"
 echo
 
@@ -51,14 +121,28 @@ echo
 echo "Recent safe tags:"
 git tag --list | grep -E 'scanner-safe-' | tail -n 20 || true
 
-if git tag --list | grep -qx "${TAG_NAME}"; then
-  echo "[ERROR] Tag already exists locally: ${TAG_NAME}"
-  exit 11
-fi
+if [ "${CHECK_ONLY}" != "true" ]; then
+  if git tag --list | grep -qx "${TAG_NAME}"; then
+    echo "[ERROR] Tag already exists locally: ${TAG_NAME}"
+    exit 11
+  fi
 
-if git ls-remote --tags origin "${TAG_NAME}" | grep -q "${TAG_NAME}"; then
-  echo "[ERROR] Tag already exists on origin: ${TAG_NAME}"
-  exit 12
+  if git ls-remote --tags origin "${TAG_NAME}" | grep -q "${TAG_NAME}"; then
+    echo "[ERROR] Tag already exists on origin: ${TAG_NAME}"
+    exit 12
+  fi
+
+  if [ "${WITH_DOCS}" = "true" ]; then
+    if git tag --list | grep -qx "${DOC_TAG_NAME}"; then
+      echo "[ERROR] Documentation tag already exists locally: ${DOC_TAG_NAME}"
+      exit 13
+    fi
+
+    if git ls-remote --tags origin "${DOC_TAG_NAME}" | grep -q "${DOC_TAG_NAME}"; then
+      echo "[ERROR] Documentation tag already exists on origin: ${DOC_TAG_NAME}"
+      exit 14
+    fi
+  fi
 fi
 
 echo
@@ -74,6 +158,7 @@ python -m py_compile \
 
 bash -n run_daily_scanner_agent_safe.sh
 bash -n run_daily_scanner_agent_cron_safe.sh
+bash -n safe_status_release.sh
 
 python - <<'PY'
 import config
@@ -190,18 +275,34 @@ echo
 echo "--- scanner_agent_blocked_risk_report.txt ---"
 cat reports/scanner_agent_blocked_risk_report.txt
 
+if [ "${CHECK_ONLY}" = "true" ]; then
+  echo
+  echo "======================================"
+  echo "7. CHECK-ONLY RESULT"
+  echo "======================================"
+  git status
+  echo
+  echo "[OK] Check-only mode completed."
+  echo "[OK] No commit was created."
+  echo "[OK] Nothing was pushed."
+  echo "[OK] No tag was created."
+  echo "Finished at: $(date -Iseconds)"
+  exit 0
+fi
+
 echo
 echo "======================================"
 echo "7. GIT COMMIT / PUSH / TAG"
 echo "======================================"
 
-git status --short
+SHORT_STATUS="$(git status --short)"
+echo "${SHORT_STATUS}"
 
-if [ -n "$(git status --short)" ]; then
+if [ -n "${SHORT_STATUS}" ]; then
   echo "[INFO] Changes detected. Preparing commit."
 
-  if git status --short | grep -E '(^.. \.env$|\.session$|data/.*\.db$|reports/.*\.json$|reports/.*\.txt$|__pycache__|\.pyc$)' ; then
-    echo "[ERROR] Refusing to commit secrets, sessions, databases, runtime reports, or cache files."
+  if echo "${SHORT_STATUS}" | grep -E '(^.. \.env$|\.session$|data/.*\.db$|reports/.*\.(json|txt|log)$|application\.log$|execute-times\.tmp$|__pycache__|\.pyc$)' ; then
+    echo "[ERROR] Refusing to commit secrets, sessions, databases, runtime reports, logs, temp files, or cache files."
     exit 30
   fi
 
@@ -213,22 +314,190 @@ else
 fi
 
 CURRENT_COMMIT="$(git rev-parse --short HEAD)"
+CHANGED_FILES="$(git diff-tree --no-commit-id --name-only -r HEAD || true)"
 
 echo "Current commit: ${CURRENT_COMMIT}"
 
 git tag -a "${TAG_NAME}" -m "${COMMIT_MESSAGE}"
 git push origin "${TAG_NAME}"
 
+if [ "${WITH_DOCS}" = "true" ]; then
+  echo
+  echo "======================================"
+  echo "8. AUTO DOCUMENTATION UPDATE"
+  echo "======================================"
+  echo "Documentation tag: ${DOC_TAG_NAME}"
+
+  RELEASE_TAG="${TAG_NAME}" \
+  RELEASE_COMMIT="${CURRENT_COMMIT}" \
+  DOC_TAG="${DOC_TAG_NAME}" \
+  RELEASE_MESSAGE="${COMMIT_MESSAGE}" \
+  CHANGED_FILES="${CHANGED_FILES}" \
+  python - <<'PY'
+import json
+import os
+import re
+from pathlib import Path
+
+release_tag = os.environ["RELEASE_TAG"]
+release_commit = os.environ["RELEASE_COMMIT"]
+doc_tag = os.environ["DOC_TAG"]
+release_message = os.environ["RELEASE_MESSAGE"]
+changed_files_raw = os.environ.get("CHANGED_FILES", "").strip()
+
+changed_files = [line.strip() for line in changed_files_raw.splitlines() if line.strip()]
+if not changed_files:
+    changed_files = ["no file changes in release commit"]
+
+project_status = Path("PROJECT_STATUS.md")
+safe_releases = Path("SAFE_RELEASES.md")
+gate_json_path = Path("reports/scanner_agent_safety_gate_report.json")
+
+status_text = project_status.read_text(encoding="utf-8")
+release_text = safe_releases.read_text(encoding="utf-8")
+
+status_text = re.sub(
+    r"(Current stable tag:\n\n)([^\n]+)",
+    rf"\g<1>{release_tag}",
+    status_text,
+    count=1,
+)
+
+status_text = re.sub(
+    r"(Stable commit:\n\n)([0-9a-f]+)",
+    rf"\g<1>{release_commit}",
+    status_text,
+    count=1,
+)
+
+helper_line = "- safe_status_release.sh supports --check-only and --with-docs conveyor mode for safer one-command project releases."
+
+if helper_line not in status_text:
+    marker = "- safe_status_release.sh can run a safe snapshot, verify safety gate, commit, push, and create an explicit tag."
+    if marker in status_text:
+        status_text = status_text.replace(marker, marker + "\n" + helper_line)
+    else:
+        status_text = status_text.rstrip() + "\n" + helper_line + "\n"
+
+project_status.write_text(status_text, encoding="utf-8")
+
+gate = {}
+if gate_json_path.exists():
+    gate = json.loads(gate_json_path.read_text(encoding="utf-8"))
+
+dangerous = gate.get("dangerous_flags", {}) if isinstance(gate, dict) else {}
+
+changed_file_lines = [f"- {name}" for name in changed_files]
+
+section_lines = [
+    "",
+    "---",
+    "",
+    f"### {release_tag}",
+    "",
+    "Purpose:",
+    "",
+    release_message,
+    "",
+    "Release mode:",
+    "",
+    "Created through safe_status_release.sh --with-docs.",
+    "",
+    "What was changed:",
+    "",
+    *changed_file_lines,
+    "",
+    "Safety result:",
+    "",
+    f"Gate status: {gate.get('gate_status', 'unknown')}",
+    f"Safety gate OK: {gate.get('safety_gate_ok', 'unknown')}",
+    f"Review required: {gate.get('review_required', 'unknown')}",
+    f"Telegram message sent: {gate.get('telegram_message_sent', False)}",
+    f"Orders enabled: {dangerous.get('orders_enabled', False)}",
+    f"Trading enabled: {dangerous.get('trading_enabled', False)}",
+    f"Binance API used: {dangerous.get('binance_api_used', False)}",
+    f"Binance orders created: {dangerous.get('binance_orders_created', False)}",
+    "",
+    "Validation:",
+    "",
+    "1. cd /root/binance-spot-trading-bot",
+    "2. source .venv/bin/activate",
+    "3. ./safe_status_release.sh --check-only",
+    "",
+    "Stable point:",
+    "",
+    f"tag: {release_tag}",
+    f"commit: {release_commit}",
+    "branch: main",
+    "",
+    "---",
+    "",
+    "## Recommended next stable status tag",
+    "",
+    "After committing this documentation status update, create a new tag:",
+    "",
+    doc_tag,
+    "",
+    "Commands:",
+    "",
+    f"git tag -a {doc_tag} -m \"Stable project status after {release_tag}\"",
+    f"git push origin {doc_tag}",
+    "",
+]
+
+if f"### {release_tag}" not in release_text:
+    release_text = release_text.rstrip() + "\n" + "\n".join(section_lines) + "\n"
+
+safe_releases.write_text(release_text, encoding="utf-8")
+PY
+
+  echo "=== DOC REFERENCES ==="
+  grep -n "${TAG_NAME}\|${DOC_TAG_NAME}\|${CURRENT_COMMIT}\|safe_status_release.sh\|safe_manual_review" PROJECT_STATUS.md SAFE_RELEASES.md || true
+
+  DOC_STATUS="$(git status --short)"
+  echo "${DOC_STATUS}"
+
+  if [ -n "${DOC_STATUS}" ]; then
+    if echo "${DOC_STATUS}" | grep -E '(^.. \.env$|\.session$|data/.*\.db$|reports/.*\.(json|txt|log)$|application\.log$|execute-times\.tmp$|__pycache__|\.pyc$)' ; then
+      echo "[ERROR] Refusing to commit unsafe files during documentation update."
+      exit 31
+    fi
+
+    git add PROJECT_STATUS.md SAFE_RELEASES.md
+    git commit -m "Update project status after ${TAG_NAME}"
+    git push origin main
+  else
+    echo "[OK] Documentation already up to date."
+  fi
+
+  git tag -a "${DOC_TAG_NAME}" -m "Stable project status after ${TAG_NAME}"
+  git push origin "${DOC_TAG_NAME}"
+
+  CURRENT_COMMIT="$(git rev-parse --short HEAD)"
+fi
+
 echo
 echo "======================================"
-echo "8. FINAL STATE"
+echo "9. FINAL STATE"
 echo "======================================"
 git status
 git log --oneline -5
-git tag --list | grep -E "${TAG_NAME}" || true
+
+echo
+echo "Created tags:"
+git tag --list | grep -F "${TAG_NAME}" || true
+
+if [ "${WITH_DOCS}" = "true" ]; then
+  git tag --list | grep -F "${DOC_TAG_NAME}" || true
+fi
 
 echo
 echo "[OK] Safe status release completed."
 echo "Tag: ${TAG_NAME}"
-echo "Commit: ${CURRENT_COMMIT}"
+
+if [ "${WITH_DOCS}" = "true" ]; then
+  echo "Documentation tag: ${DOC_TAG_NAME}"
+fi
+
+echo "Final commit: ${CURRENT_COMMIT}"
 echo "Finished at: $(date -Iseconds)"
