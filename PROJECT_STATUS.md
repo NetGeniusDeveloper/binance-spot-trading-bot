@@ -27,13 +27,13 @@ It must not:
 Current stable tag:
 
 ```text
-scanner-safe-cron-manual-review-v1
+scanner-safe-status-release-tool-v1
 ```
 
 Stable commit:
 
 ```text
-19029c5
+8dd11a0
 ```
 
 Branch:
@@ -66,6 +66,7 @@ The current baseline confirms:
 - daily safe runner disables Telegram delivery by default even if local .env flags are enabled;
 - ready_for_manual_review is treated as a safe manual-review state when orders and Telegram delivery remain disabled.
 - cron safe wrapper accepts safe_manual_review as a successful safe completion when Safety gate OK is True.
+- safe_status_release.sh can run a safe snapshot, verify safety gate, commit, push, and create an explicit tag.
 
 Tracked secret-like file review:
 
@@ -220,7 +221,7 @@ Continue development only from a clean Git state.
 Current recommended stable base:
 
 ```text
-scanner-safe-cron-manual-review-v1
+scanner-safe-status-release-tool-v1
 ```
 
 Before changing code or documentation:

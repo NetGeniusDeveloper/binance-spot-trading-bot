@@ -1050,3 +1050,72 @@ Commands:
 git tag -a scanner-safe-project-status-cron-manual-review-v1 -m "Stable project status after cron safe manual review baseline"
 git push origin scanner-safe-project-status-cron-manual-review-v1
 
+---
+
+### scanner-safe-status-release-tool-v1
+
+Purpose:
+
+Stable helper script for safe project status snapshot, GitHub update, and explicit tagging.
+
+What was added:
+
+- safe_status_release.sh;
+- one-command safe status snapshot;
+- Git state, branch, log, and safe tag overview;
+- static Python and bash checks;
+- config safety checks for DRY_RUN, SEND_TELEGRAM_MESSAGE, and WALLET_USAGE_PERCENT;
+- health_check.py run before release;
+- cron-safe snapshot run before release;
+- safety gate JSON validation before release;
+- refusal to release when safety gate is not safe;
+- refusal to release when dangerous runtime flags are enabled;
+- refusal to commit secrets, sessions, databases, runtime reports, or cache files;
+- explicit tag name and commit message required from the user.
+
+Key file:
+
+- safe_status_release.sh
+
+Usage:
+
+./safe_status_release.sh scanner-safe-example-v1 "Describe safe release"
+
+Safety result:
+
+DRY_RUN: True
+SEND_TELEGRAM_MESSAGE: False
+WALLET_USAGE_PERCENT: 0.0
+Gate status: safe_manual_review
+Safety gate OK: True
+Telegram message sent: False
+Orders enabled: False
+Trading enabled: False
+Binance orders created: False
+
+Validation:
+
+1. cd /root/binance-spot-trading-bot
+2. source .venv/bin/activate
+3. bash -n safe_status_release.sh
+4. ./safe_status_release.sh scanner-safe-status-release-tool-v1 "Add safe status release helper"
+
+Stable point:
+
+tag: scanner-safe-status-release-tool-v1
+commit: 8dd11a0
+branch: main
+
+---
+
+## Recommended next stable status tag
+
+After committing this documentation status update, create a new tag:
+
+scanner-safe-project-status-release-tool-v1
+
+Commands:
+
+git tag -a scanner-safe-project-status-release-tool-v1 -m "Stable project status after safe status release helper"
+git push origin scanner-safe-project-status-release-tool-v1
+
