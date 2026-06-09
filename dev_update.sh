@@ -19,6 +19,11 @@ usage() {
   echo "  5. runs ./safe_status_release.sh --with-docs <tag> <message>"
 }
 
+if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
+  usage
+  exit 0
+fi
+
 TAG_NAME="${1:-}"
 COMMIT_MESSAGE="${2:-}"
 
