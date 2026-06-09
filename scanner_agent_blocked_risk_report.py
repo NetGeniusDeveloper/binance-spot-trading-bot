@@ -10,6 +10,9 @@ INPUT_PATH = REPORTS_DIR / "scanner_agent_decision.json"
 OUTPUT_JSON_PATH = REPORTS_DIR / "scanner_agent_blocked_risk_report.json"
 OUTPUT_TXT_PATH = REPORTS_DIR / "scanner_agent_blocked_risk_report.txt"
 
+ANALYTICAL_UNLOCK_SCORE_TARGET = 60.0
+TELEGRAM_CONFIRMATION_SCORE_TARGET = 30.0
+
 
 def load_json(path: Path) -> Dict[str, Any]:
     if not path.exists():
@@ -72,6 +75,96 @@ def format_score(value: Any) -> str:
         return "n/a"
 
 
+def parse_float(value: Any, default: float = 0.0) -> float:
+    try:
+        return float(value)
+    except Exception:
+        return default
+
+
+def bool_value(value: Any) -> bool:
+    return value is True or str(value).strip().lower() in {"true", "1", "yes"}
+
+
+def score_gap(value: Any, target: float) -> float:
+    current = parse_float(value)
+    return round(max(target - current, 0.0), 2)
+
+
+def build_unlock_conditions(item: Dict[str, Any]) -> List[str]:
+    conditions: List[str] = []
+
+    final_gap = score_gap(item.get("final_score"), ANALYTICAL_UNLOCK_SCORE_TARGET)
+    telegram_gap = score_gap(item.get("telegram_score"), TELEGRAM_CONFIRMATION_SCORE_TARGET)
+    risk_flags = normalize_list(item.get("risk_flags"))
+    market_confirmation = bool_value(item.get("market_confirmation"))
+    has_retest = bool_value(item.get("has_retest"))
+    action_hint = str(item.get("action_hint") or "")
+
+    if final_gap > 0:
+        conditions.append(
+            "final_score must improve by "
+            f"{format_score(final_gap)} points to reach analytical target "
+            f"{format_score(ANALYTICAL_UNLOCK_SCORE_TARGET)}"
+        )
+
+    if not market_confirmation:
+        conditions.append("market confirmation must become True")
+
+    if not has_retest:
+        conditions.append("retest must be confirmed before entry review")
+
+    if telegram_gap > 0 or "weak_social_confirmation" in risk_flags:
+        conditions.append(
+            "Telegram/social confirmation must improve "
+            f"toward score {format_score(TELEGRAM_CONFIRMATION_SCORE_TARGET)}"
+        )
+
+    if risk_flags:
+        conditions.append(
+            "risk flags must be cleared or reduced: "
+            + ", ".join(risk_flags)
+        )
+
+    if action_hint == "entry_forbidden":
+        conditions.append(
+            "action_hint must move away from entry_forbidden after safety checks"
+        )
+
+    if not conditions:
+        conditions.append(
+            "manual review is still required before changing this blocked signal"
+        )
+
+    return conditions
+
+
+def enrich_blocked_item(item: Dict[str, Any]) -> Dict[str, Any]:
+    enriched = dict(item)
+    enriched["analytical_unlock_score_target"] = ANALYTICAL_UNLOCK_SCORE_TARGET
+    enriched["telegram_confirmation_score_target"] = TELEGRAM_CONFIRMATION_SCORE_TARGET
+    enriched["score_gap_to_unlock_target"] = score_gap(
+        item.get("final_score"),
+        ANALYTICAL_UNLOCK_SCORE_TARGET,
+    )
+    enriched["telegram_score_gap_to_confirmation_target"] = score_gap(
+        item.get("telegram_score"),
+        TELEGRAM_CONFIRMATION_SCORE_TARGET,
+    )
+    enriched["unlock_conditions"] = build_unlock_conditions(item)
+    return enriched
+
+
+def count_unlock_conditions(items: List[Dict[str, Any]]) -> Dict[str, int]:
+    result: Dict[str, int] = {}
+
+    for item in items:
+        for condition in normalize_list(item.get("unlock_conditions")):
+            result[condition] = result.get(condition, 0) + 1
+
+    return dict(sorted(result.items()))
+
+
 def select_blocked_items(decisions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     blocked: List[Dict[str, Any]] = []
 
@@ -82,7 +175,7 @@ def select_blocked_items(decisions: List[Dict[str, Any]]) -> List[Dict[str, Any]
         decision = str(item.get("decision", "")).strip()
 
         if decision == "blocked_risk":
-            blocked.append(item)
+            blocked.append(enrich_blocked_item(item))
 
     blocked.sort(
         key=lambda item: (
@@ -135,6 +228,7 @@ def build_report_payload() -> Dict[str, Any]:
             "blocked_items": [],
             "summary_by_risk_level": {},
             "summary_by_risk_flag": {},
+            "summary_by_unlock_condition": {},
             "blockers": ["decision_file_not_ready"],
             "warnings": [],
             "error": loaded.get("error"),
@@ -164,6 +258,7 @@ def build_report_payload() -> Dict[str, Any]:
         "blocked_items": blocked_items,
         "summary_by_risk_level": count_by_risk_level(blocked_items),
         "summary_by_risk_flag": count_risk_flags(blocked_items),
+        "summary_by_unlock_condition": count_unlock_conditions(blocked_items),
         "blockers": [],
         "warnings": [],
         "disclaimer": (
@@ -197,6 +292,7 @@ def build_text_report(payload: Dict[str, Any]) -> str:
     lines.append(f"Blocked risk items: {payload.get('blocked_count')}")
     lines.append(f"Summary by risk level: {payload.get('summary_by_risk_level')}")
     lines.append(f"Summary by risk flag: {payload.get('summary_by_risk_flag')}")
+    lines.append(f"Summary by unlock condition: {payload.get('summary_by_unlock_condition')}")
     lines.append(f"Blockers: {format_list(payload.get('blockers'))}")
     lines.append(f"Warnings: {format_list(payload.get('warnings'))}")
 
@@ -231,6 +327,16 @@ def build_text_report(payload: Dict[str, Any]) -> str:
             lines.append(f"Market confirmation: {item.get('market_confirmation')}")
             lines.append(f"Retest confirmed: {item.get('has_retest')}")
             lines.append(f"Risk flags: {format_list(item.get('risk_flags'))}")
+            lines.append(
+                "Unlock score gap: "
+                f"{format_score(item.get('score_gap_to_unlock_target'))} "
+                f"to target {format_score(item.get('analytical_unlock_score_target'))}"
+            )
+            lines.append(
+                "Telegram confirmation gap: "
+                f"{format_score(item.get('telegram_score_gap_to_confirmation_target'))} "
+                f"to target {format_score(item.get('telegram_confirmation_score_target'))}"
+            )
             lines.append(f"Message intent: {item.get('message_intent')}")
             lines.append(f"Message quality: {format_score(item.get('message_quality_score'))}")
             lines.append(f"Message flags: {format_list(item.get('message_risk_flags'))}")
@@ -249,6 +355,16 @@ def build_text_report(payload: Dict[str, Any]) -> str:
             lines.append(f"Risk explanation: {item.get('risk_explanation')}")
             lines.append(f"Manager note: {item.get('manager_note')}")
             lines.append(f"Recommended next step: {item.get('recommended_next_step')}")
+            lines.append("")
+            lines.append("Unlock conditions:")
+
+            unlock_conditions = normalize_list(item.get("unlock_conditions"))
+
+            if unlock_conditions:
+                for condition in unlock_conditions:
+                    lines.append(f"- {condition}")
+            else:
+                lines.append("- manual review required")
 
     lines.append("")
     lines.append("FINAL NOTE")
@@ -294,6 +410,7 @@ def print_summary(payload: Dict[str, Any], json_path: Path, txt_path: Path) -> N
     print("Blocked risk items:", payload.get("blocked_count"))
     print("Summary by risk level:", payload.get("summary_by_risk_level"))
     print("Summary by risk flag:", payload.get("summary_by_risk_flag"))
+    print("Summary by unlock condition:", payload.get("summary_by_unlock_condition"))
 
     if payload.get("blockers"):
         print("Blockers:", ", ".join(str(item) for item in payload["blockers"]))
