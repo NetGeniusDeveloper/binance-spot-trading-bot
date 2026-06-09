@@ -26,7 +26,7 @@ It must not:
 
 Current stable tag:
 
-scanner-safe-blocked-risk-unlock-conditions-v1
+scanner-safe-decision-report-status-table-v1
 scanner-safe-status-release-tool-v1
 ```
 
