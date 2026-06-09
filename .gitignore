@@ -31,26 +31,25 @@ crypto_scanner_session.session
 crypto_scanner_session.session-journal
 
 # ==================================================
-# Local reports and runtime outputs
+# Local databases
 # ==================================================
-reports/*.json
-reports/*.txt
-reports/*.log
+data/*.db
+data/*.sqlite
+data/*.sqlite3
 reports/*.db
 reports/*.sqlite
 reports/*.sqlite3
 
-# Keep recommended/generated Python config previews if needed
-!reports/scanner_real_channels.recommended.py
-!reports/scanner_real_channels.backup.py
-
 # ==================================================
-# Local database files
+# Local data/runtime outputs
 # ==================================================
-data/social_scanner.db
-data/*.db
-data/*.sqlite
-data/*.sqlite3
+data/*.csv
+data/*.old.csv
+data/*.txt
+reports/*.json
+reports/*.txt
+reports/*.log
+reports/*.md
 
 # ==================================================
 # Logs
@@ -83,22 +82,7 @@ execute-times.tmp
 patch_*.py
 
 # ==================================================
-# Local markdown reports
-# ==================================================
-reports/*.md
-
-# ==================================================
 # Generated scanner channel previews/backups
 # ==================================================
 reports/scanner_real_channels.backup.py
 reports/scanner_real_channels.recommended.py
-
-# ==================================================
-# Local data/runtime files
-# ==================================================
-data/*.db
-data/*.sqlite
-data/*.sqlite3
-data/*.csv
-data/*.old.csv
-data/*.txt
