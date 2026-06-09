@@ -33,6 +33,8 @@ SAFETY_GATE_TXT="reports/scanner_agent_safety_gate_report.txt"
 SAFETY_GATE_JSON="reports/scanner_agent_safety_gate_report.json"
 BLOCKED_RISK_TXT="reports/scanner_agent_blocked_risk_report.txt"
 BLOCKED_RISK_JSON="reports/scanner_agent_blocked_risk_report.json"
+WATCHLIST_TXT="reports/scanner_agent_watchlist_report.txt"
+WATCHLIST_JSON="reports/scanner_agent_watchlist_report.json"
 
 echo "======================================"
 echo "DAILY SCANNER AGENT SAFE RUN"
@@ -155,6 +157,44 @@ print("Blocked risk warnings:", ", ".join(payload.get("warnings", [])) or "none"
 PYBR
 else
   echo "[WARN] Missing blocked risk JSON: ${BLOCKED_RISK_JSON}"
+fi
+
+echo
+echo "======================================"
+echo "3C. WATCHLIST REPORT"
+echo "======================================"
+python scanner_agent_watchlist_report.py || echo "[WARN] Watchlist report failed"
+
+if [ -f "${WATCHLIST_TXT}" ]; then
+  cat "${WATCHLIST_TXT}"
+else
+  echo "[WARN] Missing watchlist TXT: ${WATCHLIST_TXT}"
+fi
+
+echo
+echo "Watchlist JSON: ${WATCHLIST_JSON}"
+if [ -f "${WATCHLIST_JSON}" ]; then
+  python - <<'PYWL'
+import json
+from pathlib import Path
+
+path = Path("reports/scanner_agent_watchlist_report.json")
+
+try:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+except Exception as ex:
+    print("[WARN] Cannot read watchlist JSON:", ex)
+    raise SystemExit
+
+print("Watchlist safe to continue:", payload.get("safe_to_continue"))
+print("Watchlist count:", payload.get("watchlist_count"))
+print("Watchlist statuses:", payload.get("summary_by_watch_status"))
+print("Watchlist decisions:", payload.get("summary_by_decision"))
+print("Watchlist blockers:", ", ".join(payload.get("blockers", [])) or "none")
+print("Watchlist warnings:", ", ".join(payload.get("warnings", [])) or "none")
+PYWL
+else
+  echo "[WARN] Missing watchlist JSON: ${WATCHLIST_JSON}"
 fi
 
 echo
@@ -396,6 +436,7 @@ echo "[OK] Full pipeline log was saved locally"
 echo "[OK] Final pipeline summary was printed for manual review"
 echo "[OK] Channel quality summary was printed for manual review"
 echo "[OK] Channel config recommendations were printed for manual review"
+echo "[OK] Watchlist report was printed for manual review"
 echo "[OK] Telegram sending still depends on safety flags"
 
 echo
