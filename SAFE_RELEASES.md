@@ -819,3 +819,89 @@ git tag -a scanner-safe-docs-map-v2 -m "Stable release map with README documenta
 git push origin scanner-safe-docs-map-v2
 ```
 
+---
+
+### scanner-safe-secret-hygiene-v1
+
+Purpose:
+
+```text
+Stable build with improved secret hygiene and sample environment safety flags.
+```
+
+What was changed:
+
+- `.gitignore` was cleaned and simplified;
+- local `.env` remains ignored by Git;
+- local database, report, session, log, cache, and runtime files remain ignored;
+- `.env.sample` now documents scanner Telegram sender safety flags;
+- `credentials.py` was reviewed and kept tracked because it only loads environment variables and does not store real secrets.
+
+Key files:
+
+```text
+.gitignore
+.env.sample
+credentials.py
+config.py
+health_check.py
+```
+
+Safety result:
+
+```text
+DRY_RUN: True
+SEND_TELEGRAM_MESSAGE: False
+WALLET_USAGE_PERCENT: 0.0
+Binance private keys: not set
+Telegram sending: disabled by default
+```
+
+Validation:
+
+```bash
+cd /root/binance-spot-trading-bot
+source .venv/bin/activate
+
+python -m py_compile credentials.py config.py health_check.py
+python health_check.py
+
+git status
+git ls-files | grep -E '(^\.env$|credentials\.py|session|\.db$|\.tmp$)' || true
+```
+
+Expected result:
+
+```text
+[OK] DRY_RUN включён
+[OK] WALLET_USAGE_PERCENT = 0.0, автоматическая покупка через main.py заблокирована
+[OK] Telegram-отправка отключена
+[OK] Binance private keys не заданы — безопасно для DRY_RUN
+[OK] Health check завершён
+```
+
+Stable point:
+
+```text
+tag: scanner-safe-secret-hygiene-v1
+commit: 138b027
+branch: main
+```
+
+---
+
+## Recommended next stable status tag
+
+After committing this documentation status update, create a new tag:
+
+```text
+scanner-safe-project-status-secret-hygiene-v1
+```
+
+Commands:
+
+```bash
+git tag -a scanner-safe-project-status-secret-hygiene-v1 -m "Stable project status after secret hygiene baseline"
+git push origin scanner-safe-project-status-secret-hygiene-v1
+```
+

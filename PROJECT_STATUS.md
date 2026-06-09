@@ -27,13 +27,13 @@ It must not:
 Current stable tag:
 
 ```text
-scanner-safe-docs-map-v3
+scanner-safe-secret-hygiene-v1
 ```
 
 Stable commit:
 
 ```text
-229d63b
+138b027
 ```
 
 Branch:
@@ -49,6 +49,30 @@ On branch main
 Your branch is up to date with 'origin/main'.
 nothing to commit, working tree clean
 ```
+
+---
+
+## Current safety baseline
+
+The current baseline confirms:
+
+- `DRY_RUN=True`;
+- `WALLET_USAGE_PERCENT=0.0`;
+- `SEND_TELEGRAM_MESSAGE=False`;
+- Binance private keys are not required for safe DRY_RUN development;
+- `.env` is ignored by Git;
+- `.env.sample` documents the required safe environment variables;
+- scanner Telegram delivery remains blocked unless both explicit safety flags are enabled.
+
+Tracked secret-like file review:
+
+```text
+credentials.py
+```
+
+`credentials.py` is allowed to remain tracked because it contains only environment-variable loading logic and does not store real keys.
+
+Real secrets must remain only in local `.env` and must not be committed.
 
 ---
 
@@ -186,7 +210,7 @@ Continue development only from a clean Git state.
 Current recommended stable base:
 
 ```text
-scanner-safe-docs-map-v3
+scanner-safe-secret-hygiene-v1
 ```
 
 Before changing code or documentation:
