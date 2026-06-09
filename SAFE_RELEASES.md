@@ -1223,3 +1223,55 @@ Commands:
 git tag -a scanner-safe-project-status-dev-update-conveyor-v1 -m "Stable project status after scanner-safe-dev-update-conveyor-v1"
 git push origin scanner-safe-project-status-dev-update-conveyor-v1
 
+---
+
+### scanner-safe-dev-update-help-v1
+
+Purpose:
+
+Add dev update help mode
+
+Release mode:
+
+Created through safe_status_release.sh --with-docs.
+
+What was changed:
+
+- dev_update.sh
+
+Safety result:
+
+Gate status: safe_manual_review
+Safety gate OK: True
+Review required: True
+Telegram message sent: False
+Orders enabled: False
+Trading enabled: False
+Binance API used: False
+Binance orders created: False
+
+Validation:
+
+1. cd /root/binance-spot-trading-bot
+2. source .venv/bin/activate
+3. ./safe_status_release.sh --check-only
+
+Stable point:
+
+tag: scanner-safe-dev-update-help-v1
+commit: 1fe971f
+branch: main
+
+---
+
+## Recommended next stable status tag
+
+After committing this documentation status update, create a new tag:
+
+scanner-safe-project-status-dev-update-help-v1
+
+Commands:
+
+git tag -a scanner-safe-project-status-dev-update-help-v1 -m "Stable project status after scanner-safe-dev-update-help-v1"
+git push origin scanner-safe-project-status-dev-update-help-v1
+

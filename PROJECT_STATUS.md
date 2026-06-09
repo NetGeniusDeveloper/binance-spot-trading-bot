@@ -26,7 +26,7 @@ It must not:
 
 Current stable tag:
 
-scanner-safe-dev-update-conveyor-v1
+scanner-safe-dev-update-help-v1
 scanner-safe-status-release-tool-v1
 ```
 
