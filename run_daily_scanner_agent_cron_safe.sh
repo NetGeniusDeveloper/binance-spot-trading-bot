@@ -89,6 +89,7 @@ print("Warnings:", ", ".join(warnings) if warnings else "none")
 safe_statuses = {
     "safe",
     "duplicate_blocked",
+    "safe_manual_review",
 }
 
 review_statuses = {
@@ -96,7 +97,10 @@ review_statuses = {
 }
 
 if gate_status in safe_statuses and safety_gate_ok:
-    print("[OK] Safety gate passed")
+    if review_required:
+        print("[WARN] Safety gate passed with manual review required")
+    else:
+        print("[OK] Safety gate passed")
     raise SystemExit(0)
 
 if gate_status in review_statuses and review_required:
