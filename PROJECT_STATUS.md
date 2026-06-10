@@ -26,7 +26,7 @@ It must not:
 
 Current stable tag:
 
-scanner-safe-scoring-gap-reports-v1
+scanner-safe-risk-filter-backtest-v1
 scanner-safe-status-release-tool-v1
 ```
 
