@@ -41,6 +41,10 @@ SOURCE_GROUP_ORDER = [
     "unknown",
 ]
 
+ENTRY_FINAL_SCORE_TARGET = 60.0
+ENTRY_MARKET_SCORE_TARGET = 60.0
+ENTRY_TELEGRAM_SCORE_TARGET = 30.0
+
 
 def load_decision_payload(path: Path = INPUT_PATH) -> Dict[str, Any]:
     if not path.exists():
@@ -95,6 +99,77 @@ def safe_int(value: Any, default: int = 0) -> int:
         return int(value)
     except Exception:
         return default
+
+
+def score_gap(value: Any, target: float) -> float:
+    return round(max(target - safe_float(value), 0.0), 2)
+
+
+def bool_value(value: Any) -> bool:
+    return value is True or str(value).strip().lower() in {"true", "1", "yes"}
+
+
+def build_scoring_gap(item: Dict[str, Any]) -> Dict[str, Any]:
+    risk_flags = normalize_list(item.get("risk_flags"))
+    missing_confirmations: List[str] = []
+
+    if not bool_value(item.get("market_confirmation")):
+        missing_confirmations.append("market_confirmation")
+
+    if not bool_value(item.get("has_retest")):
+        missing_confirmations.append("retest")
+
+    if score_gap(item.get("telegram_score"), ENTRY_TELEGRAM_SCORE_TARGET) > 0:
+        missing_confirmations.append("telegram_social_confirmation")
+
+    if risk_flags:
+        missing_confirmations.extend(f"risk_flag:{flag}" for flag in risk_flags)
+
+    if str(item.get("action_hint") or "") == "entry_forbidden":
+        missing_confirmations.append("action_hint:entry_forbidden")
+
+    return {
+        "entry_final_score_target": ENTRY_FINAL_SCORE_TARGET,
+        "entry_market_score_target": ENTRY_MARKET_SCORE_TARGET,
+        "entry_telegram_score_target": ENTRY_TELEGRAM_SCORE_TARGET,
+        "final_score_gap": score_gap(item.get("final_score"), ENTRY_FINAL_SCORE_TARGET),
+        "market_score_gap": score_gap(item.get("market_score"), ENTRY_MARKET_SCORE_TARGET),
+        "telegram_score_gap": score_gap(item.get("telegram_score"), ENTRY_TELEGRAM_SCORE_TARGET),
+        "missing_confirmations": missing_confirmations,
+    }
+
+
+def format_scoring_gap_short(item: Dict[str, Any]) -> str:
+    gap = build_scoring_gap(item)
+    missing = gap.get("missing_confirmations") or []
+
+    return (
+        f"final_gap={gap['final_score_gap']} "
+        f"market_gap={gap['market_score_gap']} "
+        f"telegram_gap={gap['telegram_score_gap']} "
+        f"missing={','.join(str(item) for item in missing) if missing else 'none'}"
+    )
+
+
+def print_scoring_gap(item: Dict[str, Any]) -> None:
+    gap = build_scoring_gap(item)
+
+    print("  Scoring gap:")
+    print("   - entry final target:", gap["entry_final_score_target"])
+    print("   - entry market target:", gap["entry_market_score_target"])
+    print("   - entry telegram target:", gap["entry_telegram_score_target"])
+    print("   - final score gap:", gap["final_score_gap"])
+    print("   - market score gap:", gap["market_score_gap"])
+    print("   - telegram score gap:", gap["telegram_score_gap"])
+
+    missing = gap.get("missing_confirmations") or []
+
+    if missing:
+        print("   - missing confirmations:")
+        for item in missing:
+            print("     -", item)
+    else:
+        print("   - missing confirmations: none")
 
 
 def normalize_source_group(value: Any) -> str:
@@ -206,6 +281,7 @@ def build_decision_table_rows(decisions: List[Dict[str, Any]]) -> List[Dict[str,
                 "telegram_score": safe_float(item.get("telegram_score"), 0.0),
                 "risk_level": str(item.get("risk_level") or "unknown"),
                 "risk_flags": format_list(item.get("risk_flags")),
+                "scoring_gap": format_scoring_gap_short(item),
                 "action_hint": str(item.get("action_hint") or "unknown"),
                 "next_step": str(item.get("recommended_next_step") or "manual review"),
             }
@@ -300,7 +376,9 @@ def print_decision_status_table(decisions: List[Dict[str, Any]]) -> None:
     for row in rows:
         print(
             f"- {row['bucket']} {row['pair']}: "
-            f"risks={row['risk_flags']}; next={row['next_step']}"
+            f"risks={row['risk_flags']}; "
+            f"gap={row['scoring_gap']}; "
+            f"next={row['next_step']}"
         )
 
 
@@ -377,6 +455,7 @@ def print_human_decision_fields(item: Dict[str, Any]) -> None:
 def print_item_details(item: Dict[str, Any]) -> None:
     print_decision_line(item)
     print_message_details(item)
+    print_scoring_gap(item)
     print_human_decision_fields(item)
     print_reasons(item)
     print_safe_note(item)

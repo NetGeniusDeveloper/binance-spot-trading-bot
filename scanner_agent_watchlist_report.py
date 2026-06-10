@@ -23,6 +23,10 @@ WATCHLIST_DECISIONS = {
     "blocked_risk",
 }
 
+ENTRY_FINAL_SCORE_TARGET = 60.0
+ENTRY_MARKET_SCORE_TARGET = 60.0
+ENTRY_TELEGRAM_SCORE_TARGET = 30.0
+
 
 def load_json(path: Path) -> Dict[str, Any]:
     if not path.exists():
@@ -99,6 +103,44 @@ def safe_int(value: Any, default: int = 0) -> int:
         return default
 
 
+def score_gap(value: Any, target: float) -> float:
+    return round(max(target - safe_float(value), 0.0), 2)
+
+
+def bool_value(value: Any) -> bool:
+    return value is True or str(value).strip().lower() in {"true", "1", "yes"}
+
+
+def build_scoring_gap(item: Dict[str, Any]) -> Dict[str, Any]:
+    risk_flags = normalize_list(item.get("risk_flags"))
+    missing_confirmations: List[str] = []
+
+    if not bool_value(item.get("market_confirmation")):
+        missing_confirmations.append("market_confirmation")
+
+    if not bool_value(item.get("has_retest")):
+        missing_confirmations.append("retest")
+
+    if score_gap(item.get("telegram_score"), ENTRY_TELEGRAM_SCORE_TARGET) > 0:
+        missing_confirmations.append("telegram_social_confirmation")
+
+    if risk_flags:
+        missing_confirmations.extend(f"risk_flag:{flag}" for flag in risk_flags)
+
+    if str(item.get("action_hint") or "") == "entry_forbidden":
+        missing_confirmations.append("action_hint:entry_forbidden")
+
+    return {
+        "entry_final_score_target": ENTRY_FINAL_SCORE_TARGET,
+        "entry_market_score_target": ENTRY_MARKET_SCORE_TARGET,
+        "entry_telegram_score_target": ENTRY_TELEGRAM_SCORE_TARGET,
+        "final_score_gap": score_gap(item.get("final_score"), ENTRY_FINAL_SCORE_TARGET),
+        "market_score_gap": score_gap(item.get("market_score"), ENTRY_MARKET_SCORE_TARGET),
+        "telegram_score_gap": score_gap(item.get("telegram_score"), ENTRY_TELEGRAM_SCORE_TARGET),
+        "missing_confirmations": missing_confirmations,
+    }
+
+
 def classify_watch_status(item: Dict[str, Any]) -> str:
     decision = str(item.get("decision") or "").strip()
     action_hint = str(item.get("action_hint") or "").strip()
@@ -137,6 +179,7 @@ def select_watchlist_items(decisions: List[Dict[str, Any]]) -> List[Dict[str, An
 
         enriched = dict(item)
         enriched["watch_status"] = classify_watch_status(item)
+        enriched["scoring_gap"] = build_scoring_gap(item)
         selected.append(enriched)
 
     selected.sort(
@@ -296,6 +339,25 @@ def build_text_report(payload: Dict[str, Any]) -> str:
             lines.append(f"Market confirmation: {item.get('market_confirmation')}")
             lines.append(f"Retest confirmed: {item.get('has_retest')}")
             lines.append(f"Risk flags: {format_list(item.get('risk_flags'))}")
+
+            scoring_gap = item.get("scoring_gap") or {}
+            lines.append("")
+            lines.append("Scoring gap:")
+            lines.append(f"- entry final target: {scoring_gap.get('entry_final_score_target')}")
+            lines.append(f"- entry market target: {scoring_gap.get('entry_market_score_target')}")
+            lines.append(f"- entry telegram target: {scoring_gap.get('entry_telegram_score_target')}")
+            lines.append(f"- final score gap: {scoring_gap.get('final_score_gap')}")
+            lines.append(f"- market score gap: {scoring_gap.get('market_score_gap')}")
+            lines.append(f"- telegram score gap: {scoring_gap.get('telegram_score_gap')}")
+
+            missing_confirmations = normalize_list(scoring_gap.get("missing_confirmations"))
+            if missing_confirmations:
+                lines.append("- missing confirmations:")
+                for missing in missing_confirmations:
+                    lines.append(f"  - {missing}")
+            else:
+                lines.append("- missing confirmations: none")
+
             lines.append(f"Message intent: {item.get('message_intent')}")
             lines.append(f"Message quality: {format_score(item.get('message_quality_score'))}")
             lines.append(f"Recommended next step: {item.get('recommended_next_step')}")
