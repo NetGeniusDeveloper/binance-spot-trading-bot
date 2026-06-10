@@ -336,3 +336,40 @@ Related stable tags:
     scanner-safe-readme-manager-brief-daily-use-v1
     scanner-safe-project-status-main-menu-docs-v1
     scanner-safe-main-menu-docs-v1
+
+---
+
+## Manager daily command status
+
+Status version: scanner-safe-manager-daily-docs-menu-v1
+
+The project now includes a dedicated daily manager command:
+
+    manager_daily.sh
+
+The command provides a one-step safe view for:
+
+    short safety status;
+    manager brief;
+    no-orders reminder;
+    no-live-trading reminder;
+    no-Binance-private-API reminder;
+    no-Telegram-auto-send reminder.
+
+Daily command:
+
+    ./manager_daily.sh
+
+Safety rule:
+
+    manager_daily.sh is analytical only.
+    It does not create Binance orders.
+    It does not enable live trading.
+    It does not call Binance private API.
+    It does not send Telegram messages.
+
+Related stable tags:
+
+    scanner-safe-manager-daily-script-v1
+    scanner-safe-manager-daily-docs-menu-v1
+    scanner-safe-readme-manager-brief-daily-use-v1
