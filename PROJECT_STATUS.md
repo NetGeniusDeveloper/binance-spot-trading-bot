@@ -26,7 +26,7 @@ It must not:
 
 Current stable tag:
 
-scanner-safe-dashboard-manual-review-summary-v1
+scanner-safe-manual-review-cards-russian-v1
 scanner-safe-status-release-tool-v1
 ```
 
