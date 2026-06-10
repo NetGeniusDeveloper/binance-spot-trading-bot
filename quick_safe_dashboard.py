@@ -542,6 +542,92 @@ def build_payload() -> Dict[str, Any]:
     }
 
 
+
+
+def translate_manual_card_status(status: str) -> str:
+    mapping = {
+        "BLOCKED": "заблокировано",
+        "WATCH_ONLY": "только наблюдение",
+        "MANUAL_REVIEW": "требуется ручная проверка",
+    }
+    return mapping.get(str(status), str(status))
+
+
+def translate_manual_safe_decision(decision: str) -> str:
+    mapping = {
+        "DO_NOT_ENTER": "не входить в сделку",
+        "WATCH_ONLY": "только наблюдать",
+        "MANUAL_REVIEW_ONLY": "только ручная проверка",
+    }
+    return mapping.get(str(decision), str(decision))
+
+
+def load_manual_review_cards_summary() -> Dict[str, Any]:
+    path = Path("reports/manual_review_cards.json")
+
+    if not path.exists():
+        return {
+            "available": False,
+            "path": str(path),
+            "cards_count": 0,
+            "summary_by_status": {},
+            "summary_by_safe_decision": {},
+            "ru_summary_by_status": {},
+            "ru_summary_by_safe_decision": {},
+            "note_ru": "Отчёт карточек ручной проверки ещё не создан.",
+        }
+
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception as ex:
+        return {
+            "available": False,
+            "path": str(path),
+            "cards_count": 0,
+            "summary_by_status": {},
+            "summary_by_safe_decision": {},
+            "ru_summary_by_status": {},
+            "ru_summary_by_safe_decision": {},
+            "note_ru": f"Не удалось прочитать карточки ручной проверки: {ex}",
+        }
+
+    summary_by_status = as_dict(payload.get("summary_by_status"))
+    summary_by_safe_decision = as_dict(payload.get("summary_by_safe_decision"))
+
+    ru_summary_by_status = {
+        translate_manual_card_status(key): value
+        for key, value in summary_by_status.items()
+    }
+
+    ru_summary_by_safe_decision = {
+        translate_manual_safe_decision(key): value
+        for key, value in summary_by_safe_decision.items()
+    }
+
+    return {
+        "available": True,
+        "path": str(path),
+        "cards_count": payload.get("cards_count", 0),
+        "summary_by_status": summary_by_status,
+        "summary_by_safe_decision": summary_by_safe_decision,
+        "ru_summary_by_status": ru_summary_by_status,
+        "ru_summary_by_safe_decision": ru_summary_by_safe_decision,
+        "quick_dashboard_state": payload.get("quick_dashboard_state"),
+        "safe_to_continue": payload.get("safe_to_continue"),
+        "note_ru": (
+            "Карточки ручной проверки предназначены только для анализа. "
+            "Они не являются разрешением на сделку."
+        ),
+    }
+
+
+def manual_summary_count(summary: Dict[str, Any], key: str) -> int:
+    try:
+        return int(summary.get(key, 0))
+    except Exception:
+        return 0
+
+
 def build_text_report(payload: Dict[str, Any]) -> str:
     dashboard = as_dict(payload.get("dashboard"))
     lines: List[str] = []
@@ -661,6 +747,26 @@ def build_text_report(payload: Dict[str, Any]) -> str:
     lines.append(f"Watchlist decisions: {dashboard.get('watchlist_decisions')}")
     lines.append("")
 
+    manual_cards = load_manual_review_cards_summary()
+    status_summary = as_dict(manual_cards.get("summary_by_status"))
+    safe_decision_summary = as_dict(manual_cards.get("summary_by_safe_decision"))
+
+    lines.append("КАРТОЧКИ РУЧНОЙ ПРОВЕРКИ")
+    lines.append("========================")
+    lines.append(f"Отчёт доступен: {format_bool(manual_cards.get('available'))}")
+    lines.append(f"Всего карточек: {manual_cards.get('cards_count')}")
+    lines.append(f"Заблокировано: {manual_summary_count(status_summary, 'BLOCKED')}")
+    lines.append(f"Только наблюдение: {manual_summary_count(status_summary, 'WATCH_ONLY')}")
+    lines.append(f"Требуется ручная проверка: {manual_summary_count(status_summary, 'MANUAL_REVIEW')}")
+    lines.append("")
+    lines.append("Решения безопасности:")
+    lines.append(f"- Не входить в сделку: {manual_summary_count(safe_decision_summary, 'DO_NOT_ENTER')}")
+    lines.append(f"- Только наблюдать: {manual_summary_count(safe_decision_summary, 'WATCH_ONLY')}")
+    lines.append(f"- Только ручная проверка: {manual_summary_count(safe_decision_summary, 'MANUAL_REVIEW_ONLY')}")
+    lines.append("")
+    lines.append(f"Пояснение: {manual_cards.get('note_ru')}")
+    lines.append("")
+
     lines.append("SAFETY")
     lines.append("======")
     lines.append("Analytical only: True")
@@ -741,6 +847,31 @@ def print_summary(payload: Dict[str, Any], json_path: Path, txt_path: Path) -> N
         dashboard.get("blocked_risk_count"),
         "watchlist=",
         dashboard.get("watchlist_count"),
+    )
+
+    manual_cards = load_manual_review_cards_summary()
+    status_summary = as_dict(manual_cards.get("summary_by_status"))
+    safe_decision_summary = as_dict(manual_cards.get("summary_by_safe_decision"))
+
+    print(
+        "Карточки ручной проверки:",
+        "всего=",
+        manual_cards.get("cards_count"),
+        "заблокировано=",
+        manual_summary_count(status_summary, "BLOCKED"),
+        "только_наблюдение=",
+        manual_summary_count(status_summary, "WATCH_ONLY"),
+        "ручная_проверка=",
+        manual_summary_count(status_summary, "MANUAL_REVIEW"),
+    )
+    print(
+        "Решения по карточкам:",
+        "не_входить=",
+        manual_summary_count(safe_decision_summary, "DO_NOT_ENTER"),
+        "только_наблюдать=",
+        manual_summary_count(safe_decision_summary, "WATCH_ONLY"),
+        "только_ручная_проверка=",
+        manual_summary_count(safe_decision_summary, "MANUAL_REVIEW_ONLY"),
     )
 
     closest_items = as_list(cockpit.get("closest_to_unlock"))
