@@ -37,6 +37,8 @@ WATCHLIST_TXT="reports/scanner_agent_watchlist_report.txt"
 WATCHLIST_JSON="reports/scanner_agent_watchlist_report.json"
 RISK_BACKTEST_TXT="reports/scanner_agent_risk_filter_backtest.txt"
 RISK_BACKTEST_JSON="reports/scanner_agent_risk_filter_backtest.json"
+SCENARIO_MATRIX_TXT="reports/scanner_agent_scenario_matrix_report.txt"
+SCENARIO_MATRIX_JSON="reports/scanner_agent_scenario_matrix_report.json"
 
 echo "======================================"
 echo "DAILY SCANNER AGENT SAFE RUN"
@@ -230,11 +232,55 @@ print("Risk filter backtest safe to continue:", payload.get("safe_to_continue"))
 print("Risk filter total decisions:", payload.get("total_decisions"))
 print("Risk filter buckets:", payload.get("summary_by_bucket"))
 print("Risk filter gaps:", payload.get("gap_summary"))
+print("Risk filter synthetic scenarios OK:", payload.get("synthetic_scenarios_ok"))
+print("Risk filter synthetic scenario count:", payload.get("synthetic_scenario_count"))
+print("Risk filter synthetic scenario failed count:", payload.get("synthetic_scenario_failed_count"))
 print("Risk filter blockers:", ", ".join(payload.get("blockers", [])) or "none")
 print("Risk filter warnings:", ", ".join(payload.get("warnings", [])) or "none")
 PYRFBT
 else
   echo "[WARN] Missing risk filter backtest JSON: ${RISK_BACKTEST_JSON}"
+fi
+
+echo
+echo "======================================"
+echo "3E. SCENARIO MATRIX REPORT"
+echo "======================================"
+python scanner_agent_scenario_matrix_report.py || echo "[WARN] Scenario matrix report failed"
+
+if [ -f "${SCENARIO_MATRIX_TXT}" ]; then
+  cat "${SCENARIO_MATRIX_TXT}"
+else
+  echo "[WARN] Missing scenario matrix TXT: ${SCENARIO_MATRIX_TXT}"
+fi
+
+echo
+echo "Scenario matrix JSON: ${SCENARIO_MATRIX_JSON}"
+if [ -f "${SCENARIO_MATRIX_JSON}" ]; then
+  python - <<'PYSCENARIO'
+import json
+from pathlib import Path
+
+path = Path("reports/scanner_agent_scenario_matrix_report.json")
+
+try:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+except Exception as ex:
+    print("[WARN] Cannot read scenario matrix JSON:", ex)
+    raise SystemExit
+
+print("Scenario matrix safe to continue:", payload.get("safe_to_continue"))
+print("Scenario matrix synthetic OK:", payload.get("synthetic_scenarios_ok"))
+print("Scenario matrix count:", payload.get("scenario_count"))
+print("Scenario matrix failed count:", payload.get("failed_count"))
+print("Scenario matrix unsafe runtime count:", payload.get("unsafe_runtime_count"))
+print("Scenario matrix result summary:", payload.get("summary_by_result"))
+print("Scenario matrix bucket summary:", payload.get("summary_by_actual_bucket"))
+print("Scenario matrix blockers:", ", ".join(payload.get("blockers", [])) or "none")
+print("Scenario matrix warnings:", ", ".join(payload.get("warnings", [])) or "none")
+PYSCENARIO
+else
+  echo "[WARN] Missing scenario matrix JSON: ${SCENARIO_MATRIX_JSON}"
 fi
 
 echo
@@ -478,6 +524,7 @@ echo "[OK] Channel quality summary was printed for manual review"
 echo "[OK] Channel config recommendations were printed for manual review"
 echo "[OK] Watchlist report was printed for manual review"
 echo "[OK] Risk filter backtest was printed for manual review"
+echo "[OK] Scenario matrix report was printed for manual review"
 echo "[OK] Telegram sending still depends on safety flags"
 
 echo

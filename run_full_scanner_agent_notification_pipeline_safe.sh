@@ -49,6 +49,7 @@ python -m py_compile \
   scanner_agent_blocked_risk_report.py \
   scanner_agent_watchlist_report.py \
   scanner_agent_risk_filter_backtest.py \
+  scanner_agent_scenario_matrix_report.py \
   scanner_agent_notification_report.py \
   scanner_agent_telegram_message_preview.py \
   scanner_agent_telegram_sender_dry_run.py \
@@ -112,6 +113,12 @@ echo "======================================"
 echo "6C. SCANNER AGENT RISK FILTER BACKTEST SAFE RUN"
 echo "======================================"
 python scanner_agent_risk_filter_backtest.py
+
+echo
+echo "======================================"
+echo "6D. SCANNER AGENT SCENARIO MATRIX REPORT SAFE RUN"
+echo "======================================"
+python scanner_agent_scenario_matrix_report.py
 
 echo
 echo "======================================"
@@ -237,6 +244,8 @@ echo "Watchlist report JSON: reports/scanner_agent_watchlist_report.json"
 echo "Watchlist report TXT: reports/scanner_agent_watchlist_report.txt"
 echo "Risk filter backtest JSON: reports/scanner_agent_risk_filter_backtest.json"
 echo "Risk filter backtest TXT: reports/scanner_agent_risk_filter_backtest.txt"
+echo "Scenario matrix report JSON: reports/scanner_agent_scenario_matrix_report.json"
+echo "Scenario matrix report TXT: reports/scanner_agent_scenario_matrix_report.txt"
 echo "Agent notification report TXT: reports/scanner_agent_notification_report.txt"
 echo "Telegram message preview TXT: reports/scanner_agent_telegram_message_preview.txt"
 echo "Telegram sender dry-run JSON: reports/scanner_agent_telegram_sender_dry_run.json"
@@ -258,6 +267,7 @@ echo "[OK] Telegram channel config recommendations used saved quality JSON only"
 echo "[OK] Telegram notification sending is controlled only by SCANNER_TELEGRAM_SEND_ENABLED"
 echo "[OK] Default safe value is SCANNER_TELEGRAM_SEND_ENABLED=false"
 echo "[OK] Telegram sender is skipped when total_decisions=0"
+echo "[OK] Scenario matrix report was generated for synthetic risk-filter checks"
 echo "[OK] Final notification is analytical only"
 
 echo
