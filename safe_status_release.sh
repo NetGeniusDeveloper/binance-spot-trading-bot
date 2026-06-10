@@ -155,7 +155,8 @@ python -m py_compile \
   credentials.py \
   health_check.py \
   scanner_agent_safety_gate_report.py \
-  scanner_agent_risk_filter_backtest.py
+  scanner_agent_risk_filter_backtest.py \
+  scanner_agent_scenario_matrix_report.py
 
 bash -n run_daily_scanner_agent_safe.sh
 bash -n run_daily_scanner_agent_cron_safe.sh
@@ -325,6 +326,55 @@ PYRFBT
 
 echo
 echo "======================================"
+echo "6B. SCENARIO MATRIX REPORT CHECK"
+echo "======================================"
+python scanner_agent_scenario_matrix_report.py
+
+python - <<'PYSCENARIO'
+import json
+from pathlib import Path
+
+path = Path("reports/scanner_agent_scenario_matrix_report.json")
+
+if not path.exists():
+    raise SystemExit("[ERROR] Missing reports/scanner_agent_scenario_matrix_report.json")
+
+payload = json.loads(path.read_text(encoding="utf-8"))
+
+print("Scenario matrix safe to continue:", payload.get("safe_to_continue"))
+print("Scenario matrix synthetic OK:", payload.get("synthetic_scenarios_ok"))
+print("Scenario matrix count:", payload.get("scenario_count"))
+print("Scenario matrix failed count:", payload.get("failed_count"))
+print("Scenario matrix unsafe runtime count:", payload.get("unsafe_runtime_count"))
+print("Scenario matrix summary by result:", payload.get("summary_by_result"))
+
+if payload.get("safe_to_continue") is not True:
+    raise SystemExit("[ERROR] Scenario matrix report is not safe to continue")
+
+if payload.get("synthetic_scenarios_ok") is not True:
+    raise SystemExit("[ERROR] Scenario matrix synthetic scenarios failed")
+
+if payload.get("failed_count") != 0:
+    raise SystemExit("[ERROR] Scenario matrix failed scenarios are present")
+
+if payload.get("unsafe_runtime_count") != 0:
+    raise SystemExit("[ERROR] Scenario matrix unsafe runtime rows are present")
+
+for key in [
+    "orders_enabled",
+    "order_execution_allowed",
+    "trading_enabled",
+    "telegram_sending",
+    "binance_private_api_used",
+]:
+    if payload.get(key) is not False:
+        raise SystemExit(f"[ERROR] Scenario matrix unsafe flag: {key}")
+
+print("[OK] Scenario matrix report allows release")
+PYSCENARIO
+
+echo
+echo "======================================"
 echo "7. REPORT SNAPSHOT"
 echo "======================================"
 
@@ -342,6 +392,10 @@ cat reports/scanner_agent_blocked_risk_report.txt
 echo
 echo "--- scanner_agent_risk_filter_backtest.txt ---"
 cat reports/scanner_agent_risk_filter_backtest.txt
+
+echo
+echo "--- scanner_agent_scenario_matrix_report.txt ---"
+cat reports/scanner_agent_scenario_matrix_report.txt
 
 if [ "${CHECK_ONLY}" = "true" ]; then
   echo
