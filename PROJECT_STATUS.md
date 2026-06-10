@@ -26,7 +26,7 @@ It must not:
 
 Current stable tag:
 
-scanner-safe-quick-dashboard-v1
+scanner-safe-decision-cockpit-v1
 scanner-safe-status-release-tool-v1
 ```
 
