@@ -26,7 +26,7 @@ It must not:
 
 Current stable tag:
 
-scanner-safe-watchlist-report-v1
+scanner-safe-watchlist-report-newlines-v1
 scanner-safe-status-release-tool-v1
 ```
 
