@@ -1,7 +1,9 @@
 [
   {
     "scenario_name": "pump_fomo_should_block",
-    "expected_buckets": ["BLOCKED"],
+    "expected_buckets": [
+      "BLOCKED"
+    ],
     "decision": "blocked_risk",
     "pair": "PUMPUSDT",
     "ticker": "PUMP",
@@ -13,14 +15,19 @@
     "market_score": 82.0,
     "telegram_score": 70.0,
     "risk_adjustment": 5.0,
-    "risk_flags": ["pump_risk", "dangerous_fomo"],
+    "risk_flags": [
+      "pump_risk",
+      "dangerous_fomo"
+    ],
     "market_confirmation": true,
     "has_retest": false,
     "recommended_next_step": "Synthetic check: pump/FOMO must stay blocked."
   },
   {
     "scenario_name": "negative_news_should_block",
-    "expected_buckets": ["BLOCKED"],
+    "expected_buckets": [
+      "BLOCKED"
+    ],
     "decision": "blocked_risk",
     "pair": "NEWSUSDT",
     "ticker": "NEWS",
@@ -32,14 +39,19 @@
     "market_score": 70.0,
     "telegram_score": 45.0,
     "risk_adjustment": 20.0,
-    "risk_flags": ["negative_news_risk", "message_possible_news"],
+    "risk_flags": [
+      "negative_news_risk",
+      "message_possible_news"
+    ],
     "market_confirmation": true,
     "has_retest": true,
     "recommended_next_step": "Synthetic check: negative news must stay blocked."
   },
   {
     "scenario_name": "no_market_confirmation_should_block",
-    "expected_buckets": ["BLOCKED"],
+    "expected_buckets": [
+      "BLOCKED"
+    ],
     "decision": "blocked_risk",
     "pair": "NOMKTUSDT",
     "ticker": "NOMKT",
@@ -51,14 +63,19 @@
     "market_score": 42.0,
     "telegram_score": 62.0,
     "risk_adjustment": 55.0,
-    "risk_flags": ["no_market_confirmation"],
+    "risk_flags": [
+      "no_market_confirmation"
+    ],
     "market_confirmation": false,
     "has_retest": true,
     "recommended_next_step": "Synthetic check: no market confirmation must stay blocked."
   },
   {
     "scenario_name": "weak_social_should_block_or_watch",
-    "expected_buckets": ["BLOCKED", "WATCH"],
+    "expected_buckets": [
+      "BLOCKED",
+      "WATCH"
+    ],
     "decision": "wait_confirmation",
     "pair": "WEAKSOCUSDT",
     "ticker": "WEAKSOC",
@@ -70,14 +87,18 @@
     "market_score": 66.0,
     "telegram_score": 18.0,
     "risk_adjustment": 50.0,
-    "risk_flags": ["weak_social_confirmation"],
+    "risk_flags": [
+      "weak_social_confirmation"
+    ],
     "market_confirmation": true,
     "has_retest": false,
     "recommended_next_step": "Synthetic check: weak social signal must not become entry."
   },
   {
     "scenario_name": "good_candidate_still_analytical_only",
-    "expected_buckets": ["ENTRY_ALLOWED_ANALYTICAL_ONLY"],
+    "expected_buckets": [
+      "ENTRY_ALLOWED_ANALYTICAL_ONLY"
+    ],
     "decision": "candidate",
     "pair": "GOODUSDT",
     "ticker": "GOOD",
@@ -93,5 +114,100 @@
     "market_confirmation": true,
     "has_retest": true,
     "recommended_next_step": "Synthetic check: good candidate is analytical only, not an order."
+  },
+  {
+    "scenario_name": "late_entry_should_block",
+    "expected_buckets": [
+      "BLOCKED"
+    ],
+    "decision": "blocked_risk",
+    "pair": "LATEUSDT",
+    "ticker": "LATE",
+    "source_group": "synthetic",
+    "priority": 92,
+    "risk_level": "high",
+    "action_hint": "entry_forbidden",
+    "final_score": 64.0,
+    "market_score": 68.0,
+    "telegram_score": 52.0,
+    "risk_adjustment": 25.0,
+    "risk_flags": [
+      "late_entry",
+      "very_close_to_high"
+    ],
+    "market_confirmation": true,
+    "has_retest": false,
+    "recommended_next_step": "Synthetic check: late entry without retest must stay blocked."
+  },
+  {
+    "scenario_name": "low_liquidity_should_block",
+    "expected_buckets": [
+      "BLOCKED"
+    ],
+    "decision": "blocked_risk",
+    "pair": "LOWLIQUSDT",
+    "ticker": "LOWLIQ",
+    "source_group": "synthetic",
+    "priority": 90,
+    "risk_level": "high",
+    "action_hint": "entry_forbidden",
+    "final_score": 61.0,
+    "market_score": 63.0,
+    "telegram_score": 58.0,
+    "risk_adjustment": 18.0,
+    "risk_flags": [
+      "low_liquidity",
+      "wide_spread"
+    ],
+    "market_confirmation": true,
+    "has_retest": true,
+    "recommended_next_step": "Synthetic check: low liquidity or wide spread must stay blocked."
+  },
+  {
+    "scenario_name": "candidate_without_retest_should_watch",
+    "expected_buckets": [
+      "WATCH"
+    ],
+    "decision": "wait_retest",
+    "pair": "NORETESTUSDT",
+    "ticker": "NORETEST",
+    "source_group": "synthetic",
+    "priority": 62,
+    "risk_level": "medium",
+    "action_hint": "wait_retest_confirmation",
+    "final_score": 67.0,
+    "market_score": 70.0,
+    "telegram_score": 55.0,
+    "risk_adjustment": 62.0,
+    "risk_flags": [
+      "needs_retest"
+    ],
+    "market_confirmation": true,
+    "has_retest": false,
+    "recommended_next_step": "Synthetic check: candidate-like signal without retest must stay watch-only."
+  },
+  {
+    "scenario_name": "manual_review_candidate_should_not_trade",
+    "expected_buckets": [
+      "ENTRY_ALLOWED_ANALYTICAL_ONLY"
+    ],
+    "decision": "candidate",
+    "pair": "MANUALUSDT",
+    "ticker": "MANUAL",
+    "source_group": "synthetic",
+    "priority": 82,
+    "risk_level": "low",
+    "action_hint": "manual_review_only",
+    "final_score": 81.0,
+    "market_score": 78.0,
+    "telegram_score": 68.0,
+    "risk_adjustment": 84.0,
+    "risk_flags": [],
+    "market_confirmation": true,
+    "has_retest": true,
+    "order_execution_allowed": false,
+    "orders_enabled": false,
+    "trading_enabled": false,
+    "recommended_next_step": "Synthetic check: manual review candidate must remain analytical only."
   }
 ]
