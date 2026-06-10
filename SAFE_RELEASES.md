@@ -2276,3 +2276,57 @@ Commands:
 git tag -a scanner-safe-project-status-manual-review-cards-russian-v1 -m "Stable project status after scanner-safe-manual-review-cards-russian-v1"
 git push origin scanner-safe-project-status-manual-review-cards-russian-v1
 
+---
+
+### scanner-safe-manager-brief-report-v1
+
+Purpose:
+
+Add manager brief report
+
+Release mode:
+
+Created through safe_status_release.sh --with-docs.
+
+What was changed:
+
+- manager_brief_report.py
+- run_daily_scanner_agent_safe.sh
+- safe_status_release.sh
+
+Safety result:
+
+Gate status: safe_manual_review
+Safety gate OK: True
+Review required: True
+Telegram message sent: False
+Orders enabled: False
+Trading enabled: False
+Binance API used: False
+Binance orders created: False
+
+Validation:
+
+1. cd /root/binance-spot-trading-bot
+2. source .venv/bin/activate
+3. ./safe_status_release.sh --check-only
+
+Stable point:
+
+tag: scanner-safe-manager-brief-report-v1
+commit: a435530
+branch: main
+
+---
+
+## Recommended next stable status tag
+
+After committing this documentation status update, create a new tag:
+
+scanner-safe-project-status-manager-brief-report-v1
+
+Commands:
+
+git tag -a scanner-safe-project-status-manager-brief-report-v1 -m "Stable project status after scanner-safe-manager-brief-report-v1"
+git push origin scanner-safe-project-status-manager-brief-report-v1
+
