@@ -296,3 +296,43 @@ Related stable tags:
 
     scanner-safe-main-menu-docs-v1
     scanner-safe-project-status-main-menu-docs-v1
+
+---
+
+## Daily manager brief README workflow status
+
+Status version: scanner-safe-readme-manager-brief-daily-use-v1
+
+The README now contains a daily manual workflow for using the manager brief safely.
+
+README section:
+
+    ## Как пользоваться менеджерской сводкой каждый день
+
+Main file:
+
+    README.md
+
+The documented daily workflow explains how to:
+
+    1) open the Termux/Ubuntu main menu;
+    2) enter the Binance safe scanner section;
+    3) check the short safety status first;
+    4) open the manager brief;
+    5) treat blocked pairs as no-entry decisions;
+    6) review manual cards only as analytical material;
+    7) open report summaries when needed.
+
+Safety reminder:
+
+    The manager brief is not a trading signal.
+    It does not allow live trading.
+    It does not allow real Binance orders.
+    It does not allow automatic Telegram sending.
+    It is only a manual analytical report.
+
+Related stable tags:
+
+    scanner-safe-readme-manager-brief-daily-use-v1
+    scanner-safe-project-status-main-menu-docs-v1
+    scanner-safe-main-menu-docs-v1
