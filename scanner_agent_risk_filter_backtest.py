@@ -9,6 +9,7 @@ REPORTS_DIR = Path("reports")
 INPUT_PATH = REPORTS_DIR / "scanner_agent_decision.json"
 OUTPUT_JSON_PATH = REPORTS_DIR / "scanner_agent_risk_filter_backtest.json"
 OUTPUT_TXT_PATH = REPORTS_DIR / "scanner_agent_risk_filter_backtest.txt"
+SCENARIOS_PATH = Path("tests") / "scanner_agent_risk_filter_scenarios.json"
 
 ENTRY_FINAL_SCORE_TARGET = 60.0
 ENTRY_MARKET_SCORE_TARGET = 60.0
@@ -257,109 +258,66 @@ def closest_to_unlock(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return selected[:10]
 
 
-def build_synthetic_scenario_items() -> List[Dict[str, Any]]:
-    return [
-        {
-            "scenario_name": "pump_fomo_should_block",
-            "expected_buckets": ["BLOCKED"],
-            "decision": "blocked_risk",
-            "pair": "PUMPUSDT",
-            "ticker": "PUMP",
-            "source_group": "synthetic",
-            "priority": 99,
-            "risk_level": "high",
-            "action_hint": "entry_forbidden",
-            "final_score": 72.0,
-            "market_score": 82.0,
-            "telegram_score": 70.0,
-            "risk_adjustment": 5.0,
-            "risk_flags": ["pump_risk", "dangerous_fomo"],
-            "market_confirmation": True,
-            "has_retest": False,
-            "recommended_next_step": "Synthetic check: pump/FOMO must stay blocked.",
-        },
-        {
-            "scenario_name": "negative_news_should_block",
-            "expected_buckets": ["BLOCKED"],
-            "decision": "blocked_risk",
-            "pair": "NEWSUSDT",
-            "ticker": "NEWS",
-            "source_group": "synthetic",
-            "priority": 95,
-            "risk_level": "high",
-            "action_hint": "entry_forbidden",
-            "final_score": 68.0,
-            "market_score": 70.0,
-            "telegram_score": 45.0,
-            "risk_adjustment": 20.0,
-            "risk_flags": ["negative_news_risk", "message_possible_news"],
-            "market_confirmation": True,
-            "has_retest": True,
-            "recommended_next_step": "Synthetic check: negative news must stay blocked.",
-        },
-        {
-            "scenario_name": "no_market_confirmation_should_block",
-            "expected_buckets": ["BLOCKED"],
-            "decision": "blocked_risk",
-            "pair": "NOMKTUSDT",
-            "ticker": "NOMKT",
-            "source_group": "synthetic",
-            "priority": 85,
-            "risk_level": "medium",
-            "action_hint": "entry_forbidden",
-            "final_score": 57.0,
-            "market_score": 42.0,
-            "telegram_score": 62.0,
-            "risk_adjustment": 55.0,
-            "risk_flags": ["no_market_confirmation"],
-            "market_confirmation": False,
-            "has_retest": True,
-            "recommended_next_step": "Synthetic check: no market confirmation must stay blocked.",
-        },
-        {
-            "scenario_name": "weak_social_should_block_or_watch",
-            "expected_buckets": ["BLOCKED", "WATCH"],
-            "decision": "wait_confirmation",
-            "pair": "WEAKSOCUSDT",
-            "ticker": "WEAKSOC",
-            "source_group": "synthetic",
-            "priority": 60,
-            "risk_level": "medium",
-            "action_hint": "wait_retest_confirmation",
-            "final_score": 58.0,
-            "market_score": 66.0,
-            "telegram_score": 18.0,
-            "risk_adjustment": 50.0,
-            "risk_flags": ["weak_social_confirmation"],
-            "market_confirmation": True,
-            "has_retest": False,
-            "recommended_next_step": "Synthetic check: weak social signal must not become entry.",
-        },
-        {
-            "scenario_name": "good_candidate_still_analytical_only",
-            "expected_buckets": ["ENTRY_ALLOWED_ANALYTICAL_ONLY"],
-            "decision": "candidate",
-            "pair": "GOODUSDT",
-            "ticker": "GOOD",
-            "source_group": "synthetic",
-            "priority": 80,
-            "risk_level": "low",
-            "action_hint": "manual_review_only",
-            "final_score": 78.0,
-            "market_score": 74.0,
-            "telegram_score": 65.0,
-            "risk_adjustment": 82.0,
-            "risk_flags": [],
-            "market_confirmation": True,
-            "has_retest": True,
-            "recommended_next_step": "Synthetic check: good candidate is analytical only, not an order.",
-        },
+def load_synthetic_scenario_items() -> Dict[str, Any]:
+    loaded = load_json(SCENARIOS_PATH)
+
+    if not loaded.get("ok"):
+        return {
+            "ok": False,
+            "error": loaded.get("error"),
+            "scenario_items": [],
+        }
+
+    data = loaded.get("data")
+
+    if not isinstance(data, list):
+        return {
+            "ok": False,
+            "error": "Synthetic scenario file must contain a JSON list",
+            "scenario_items": [],
+        }
+
+    scenario_items = [
+        item
+        for item in data
+        if isinstance(item, dict)
     ]
+
+    if not scenario_items:
+        return {
+            "ok": False,
+            "error": "Synthetic scenario file contains no valid scenario objects",
+            "scenario_items": [],
+        }
+
+    return {
+        "ok": True,
+        "error": None,
+        "scenario_items": scenario_items,
+    }
 
 
 def run_synthetic_scenarios() -> Dict[str, Any]:
-    scenario_items = build_synthetic_scenario_items()
+    loaded = load_synthetic_scenario_items()
+    scenario_items = as_list(loaded.get("scenario_items"))
     results: List[Dict[str, Any]] = []
+
+    if not loaded.get("ok"):
+        return {
+            "synthetic_scenarios_ok": False,
+            "synthetic_scenario_source": str(SCENARIOS_PATH),
+            "synthetic_scenario_source_error": loaded.get("error"),
+            "synthetic_scenario_count": 0,
+            "synthetic_scenario_failed_count": 1,
+            "synthetic_scenarios": [],
+            "synthetic_scenario_failures": [
+                {
+                    "scenario_name": "synthetic_scenario_source_not_ready",
+                    "passed": False,
+                    "error": loaded.get("error"),
+                }
+            ],
+        }
 
     for raw_item in scenario_items:
         expected_buckets = normalize_list(raw_item.get("expected_buckets"))
@@ -400,6 +358,8 @@ def run_synthetic_scenarios() -> Dict[str, Any]:
 
     return {
         "synthetic_scenarios_ok": not failed,
+        "synthetic_scenario_source": str(SCENARIOS_PATH),
+        "synthetic_scenario_source_error": None,
         "synthetic_scenario_count": len(results),
         "synthetic_scenario_failed_count": len(failed),
         "synthetic_scenarios": results,
@@ -519,6 +479,8 @@ def build_text_report(payload: Dict[str, Any]) -> str:
     lines.append(f"Summary by missing confirmation: {payload.get('summary_by_missing_confirmation')}")
     lines.append(f"Gap summary: {payload.get('gap_summary')}")
     lines.append(f"Synthetic scenarios OK: {payload.get('synthetic_scenarios_ok')}")
+    lines.append(f"Synthetic scenario source: {payload.get('synthetic_scenario_source')}")
+    lines.append(f"Synthetic scenario source error: {payload.get('synthetic_scenario_source_error')}")
     lines.append(f"Synthetic scenario count: {payload.get('synthetic_scenario_count')}")
     lines.append(f"Synthetic scenario failed count: {payload.get('synthetic_scenario_failed_count')}")
     lines.append(f"Blockers: {format_list(payload.get('blockers'))}")
@@ -530,6 +492,8 @@ def build_text_report(payload: Dict[str, Any]) -> str:
     lines.append("")
     lines.append("SYNTHETIC SCENARIOS")
     lines.append("===================")
+    lines.append(f"Scenario source: {payload.get('synthetic_scenario_source')}")
+    lines.append(f"Scenario source error: {payload.get('synthetic_scenario_source_error')}")
 
     synthetic_scenarios = as_list(payload.get("synthetic_scenarios"))
 
@@ -651,6 +615,8 @@ def print_summary(payload: Dict[str, Any], json_path: Path, txt_path: Path) -> N
     print("Summary by missing confirmation:", payload.get("summary_by_missing_confirmation"))
     print("Gap summary:", payload.get("gap_summary"))
     print("Synthetic scenarios OK:", payload.get("synthetic_scenarios_ok"))
+    print("Synthetic scenario source:", payload.get("synthetic_scenario_source"))
+    print("Synthetic scenario source error:", payload.get("synthetic_scenario_source_error"))
     print("Synthetic scenario count:", payload.get("synthetic_scenario_count"))
     print("Synthetic scenario failed count:", payload.get("synthetic_scenario_failed_count"))
 
