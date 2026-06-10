@@ -41,6 +41,8 @@ SCENARIO_MATRIX_TXT="reports/scanner_agent_scenario_matrix_report.txt"
 SCENARIO_MATRIX_JSON="reports/scanner_agent_scenario_matrix_report.json"
 QUICK_DASHBOARD_TXT="reports/quick_safe_dashboard.txt"
 QUICK_DASHBOARD_JSON="reports/quick_safe_dashboard.json"
+MANUAL_REVIEW_CARDS_TXT="reports/manual_review_cards.txt"
+MANUAL_REVIEW_CARDS_JSON="reports/manual_review_cards.json"
 
 echo "======================================"
 echo "DAILY SCANNER AGENT SAFE RUN"
@@ -564,6 +566,45 @@ fi
 
 echo
 echo "======================================"
+echo "8C. MANUAL REVIEW CARDS"
+echo "======================================"
+python manual_review_cards.py || echo "[WARN] Manual review cards report failed"
+
+if [ -f "${MANUAL_REVIEW_CARDS_TXT}" ]; then
+  cat "${MANUAL_REVIEW_CARDS_TXT}"
+else
+  echo "[WARN] Missing manual review cards TXT: ${MANUAL_REVIEW_CARDS_TXT}"
+fi
+
+echo
+echo "Manual review cards JSON: ${MANUAL_REVIEW_CARDS_JSON}"
+if [ -f "${MANUAL_REVIEW_CARDS_JSON}" ]; then
+  python - <<'PYCARDS'
+import json
+from pathlib import Path
+
+path = Path("reports/manual_review_cards.json")
+
+try:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+except Exception as ex:
+    print("[WARN] Cannot read manual review cards JSON:", ex)
+    raise SystemExit
+
+print("Manual review cards safe to continue:", payload.get("safe_to_continue"))
+print("Manual review cards count:", payload.get("cards_count"))
+print("Manual review cards status summary:", payload.get("summary_by_status"))
+print("Manual review cards safe decisions:", payload.get("summary_by_safe_decision"))
+print("Manual review cards quick dashboard state:", payload.get("quick_dashboard_state"))
+print("Manual review cards blockers:", ", ".join(payload.get("blockers", [])) or "none")
+print("Manual review cards warnings:", ", ".join(payload.get("warnings", [])) or "none")
+PYCARDS
+else
+  echo "[WARN] Missing manual review cards JSON: ${MANUAL_REVIEW_CARDS_JSON}"
+fi
+
+echo
+echo "======================================"
 echo "9. SAFETY RESULT"
 echo "======================================"
 echo "[OK] This daily runner did not create orders"
@@ -576,6 +617,7 @@ echo "[OK] Watchlist report was printed for manual review"
 echo "[OK] Risk filter backtest was printed for manual review"
 echo "[OK] Scenario matrix report was printed for manual review"
 echo "[OK] Quick safe dashboard was printed for manual review"
+echo "[OK] Manual review cards were printed for manual review"
 echo "[OK] Telegram sending still depends on safety flags"
 
 echo

@@ -157,7 +157,8 @@ python -m py_compile \
   scanner_agent_safety_gate_report.py \
   scanner_agent_risk_filter_backtest.py \
   scanner_agent_scenario_matrix_report.py \
-  quick_safe_dashboard.py
+  quick_safe_dashboard.py \
+  manual_review_cards.py
 
 bash -n run_daily_scanner_agent_safe.sh
 bash -n run_daily_scanner_agent_cron_safe.sh
@@ -436,6 +437,74 @@ PYDASH
 
 echo
 echo "======================================"
+echo "6D. MANUAL REVIEW CARDS CHECK"
+echo "======================================"
+python manual_review_cards.py
+
+python - <<'PYCARDS'
+import json
+from pathlib import Path
+
+path = Path("reports/manual_review_cards.json")
+
+if not path.exists():
+    raise SystemExit("[ERROR] Missing reports/manual_review_cards.json")
+
+payload = json.loads(path.read_text(encoding="utf-8"))
+
+print("Manual review cards safe to continue:", payload.get("safe_to_continue"))
+print("Manual review cards count:", payload.get("cards_count"))
+print("Manual review cards status summary:", payload.get("summary_by_status"))
+print("Manual review cards safe decision summary:", payload.get("summary_by_safe_decision"))
+print("Manual review cards quick dashboard state:", payload.get("quick_dashboard_state"))
+
+if payload.get("safe_to_continue") is not True:
+    raise SystemExit("[ERROR] Manual review cards are not safe to continue")
+
+for key in [
+    "analytical_only",
+]:
+    if payload.get(key) is not True:
+        raise SystemExit(f"[ERROR] Manual review cards expected True flag failed: {key}")
+
+for key in [
+    "orders_enabled",
+    "order_execution_allowed",
+    "trading_enabled",
+    "telegram_sending",
+    "binance_private_api_used",
+]:
+    if payload.get(key) is not False:
+        raise SystemExit(f"[ERROR] Manual review cards unsafe flag: {key}")
+
+cards = payload.get("cards", [])
+
+if not isinstance(cards, list):
+    raise SystemExit("[ERROR] Manual review cards payload cards must be a list")
+
+for card in cards:
+    if not isinstance(card, dict):
+        raise SystemExit("[ERROR] Manual review card is not a dict")
+
+    if card.get("forbidden_action") != "NO_ORDERS_NO_LIVE_TRADING_NO_AUTO_TELEGRAM":
+        raise SystemExit("[ERROR] Manual review card forbidden action is unsafe or missing")
+
+    if card.get("safe_decision") not in {"DO_NOT_ENTER", "WATCH_ONLY", "MANUAL_REVIEW_ONLY"}:
+        raise SystemExit("[ERROR] Manual review card safe decision is unexpected")
+
+    if not isinstance(card.get("human_checklist"), list):
+        raise SystemExit("[ERROR] Manual review card human checklist must be a list")
+
+blockers = payload.get("blockers", [])
+
+if blockers:
+    raise SystemExit("[ERROR] Manual review cards blockers are present: " + ", ".join(str(item) for item in blockers))
+
+print("[OK] Manual review cards allow release")
+PYCARDS
+
+echo
+echo "======================================"
 echo "7. REPORT SNAPSHOT"
 echo "======================================"
 
@@ -461,6 +530,10 @@ cat reports/scanner_agent_scenario_matrix_report.txt
 echo
 echo "--- quick_safe_dashboard.txt ---"
 cat reports/quick_safe_dashboard.txt
+
+echo
+echo "--- manual_review_cards.txt ---"
+cat reports/manual_review_cards.txt
 
 if [ "${CHECK_ONLY}" = "true" ]; then
   echo
