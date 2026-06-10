@@ -299,22 +299,25 @@ def build_human_checklist(card: Dict[str, Any]) -> List[str]:
         checklist.append("Оставить пару только для ручного наблюдения и повторного анализа.")
 
     if card["risk_flags"]:
-        checklist.append("Проверить и дождаться исчезновения risk flags: " + format_list(card["risk_flags"]))
+        checklist.append(
+            "Проверить и дождаться исчезновения флагов риска: "
+            + format_translated_list(card["risk_flags"])
+        )
 
     if card["confirmations"].get("market_confirmation") is not True:
-        checklist.append("Дождаться market confirmation.")
+        checklist.append("Дождаться рыночного подтверждения.")
 
     if card["confirmations"].get("has_retest") is not True:
         checklist.append("Дождаться подтверждённого ретеста.")
 
     if card["gaps"].get("telegram_score_gap") not in (None, 0, 0.0):
-        checklist.append("Улучшить Telegram/social confirmation до целевого уровня.")
+        checklist.append("Улучшить Telegram/соцподтверждение до целевого уровня.")
 
     if card["gaps"].get("final_score_gap") not in (None, 0, 0.0):
-        checklist.append("Дождаться улучшения final score до аналитического порога.")
+        checklist.append("Дождаться улучшения итоговой оценки до аналитического порога.")
 
-    checklist.append("Не включать live-trading и не создавать ордера по этой карточке.")
-    checklist.append("Решение по карточке: manual review only.")
+    checklist.append("Не включать live-торговлю и не создавать ордера по этой карточке.")
+    checklist.append("Решение по карточке: только ручная проверка.")
 
     return checklist
 
@@ -399,6 +402,147 @@ def build_cards(
         return (status_order.get(card.get("card_status"), 99), gap, str(card.get("pair")))
 
     return sorted(result, key=sort_key)
+
+
+
+
+def translate_card_status(status: Any) -> str:
+    mapping = {
+        "BLOCKED": "ЗАБЛОКИРОВАНО",
+        "WATCH_ONLY": "ТОЛЬКО НАБЛЮДЕНИЕ",
+        "MANUAL_REVIEW": "РУЧНАЯ ПРОВЕРКА",
+    }
+    return mapping.get(str(status), str(status))
+
+
+def translate_safe_decision(decision: Any) -> str:
+    mapping = {
+        "DO_NOT_ENTER": "НЕ ВХОДИТЬ В СДЕЛКУ",
+        "WATCH_ONLY": "ТОЛЬКО НАБЛЮДАТЬ",
+        "MANUAL_REVIEW_ONLY": "ТОЛЬКО РУЧНАЯ ПРОВЕРКА",
+    }
+    return mapping.get(str(decision), str(decision))
+
+
+def translate_forbidden_action(action: Any) -> str:
+    mapping = {
+        "NO_ORDERS_NO_LIVE_TRADING_NO_AUTO_TELEGRAM": (
+            "НЕ СОЗДАВАТЬ ОРДЕРА, НЕ ВКЛЮЧАТЬ LIVE-ТОРГОВЛЮ, "
+            "НЕ ОТПРАВЛЯТЬ TELEGRAM АВТОМАТИЧЕСКИ"
+        ),
+    }
+    return mapping.get(str(action), str(action))
+
+
+def translate_summary_keys(summary: Any, translator) -> Dict[str, int]:
+    result: Dict[str, int] = {}
+
+    for key, value in as_dict(summary).items():
+        result[translator(key)] = value
+
+    return result
+
+
+def translate_runtime_value(value: Any) -> str:
+    if value is True:
+        return "Да"
+    if value is False:
+        return "Нет"
+    if value is None:
+        return "нет данных"
+    return str(value)
+
+
+def translate_field_name(name: Any) -> str:
+    mapping = {
+        "final_score": "итоговая оценка",
+        "market_score": "рыночная оценка",
+        "telegram_score": "оценка Telegram/соцсигнала",
+        "risk_adjustment": "поправка на риск",
+        "message_quality_score": "качество сообщения",
+        "final_score_gap": "не хватает до аналитического порога",
+        "market_score_gap": "не хватает рыночного подтверждения",
+        "telegram_score_gap": "не хватает Telegram/соцподтверждения",
+        "missing_confirmations": "недостающие подтверждения",
+        "market_confirmation": "рыночное подтверждение",
+        "has_retest": "ретест подтверждён",
+        "action_hint": "подсказка действия",
+        "entry_forbidden": "вход запрещён",
+        "weak_social_confirmation": "слабое соц/Telegram-подтверждение",
+        "message_possible_news": "сообщение похоже на новостной сигнал",
+        "no_market_confirmation": "нет рыночного подтверждения",
+        "telegram_social_confirmation": "Telegram/соцподтверждение",
+        "retest": "ретест",
+        "risk_flag:weak_social_confirmation": "флаг риска: слабое соц/Telegram-подтверждение",
+        "risk_flag:message_possible_news": "флаг риска: сообщение похоже на новостной сигнал",
+        "risk_flag:no_market_confirmation": "флаг риска: нет рыночного подтверждения",
+        "action_hint:entry_forbidden": "подсказка действия: вход запрещён",
+    }
+    return mapping.get(str(name), str(name))
+
+
+def format_translated_list(value: Any) -> str:
+    items = clean_list(value)
+
+    if not items:
+        return "нет"
+
+    return ", ".join(translate_field_name(item) for item in items)
+
+
+def translate_reasons_text(value: Any) -> str:
+    text = format_list(value)
+
+    replacements = {
+        "blocked because dangerous or weak-risk conditions were detected": (
+            "заблокировано: обнаружены опасные или слабые риск-условия"
+        ),
+        "status=пропустить": "статус=пропустить",
+        "final_score": "итоговая оценка",
+        "market_score": "рыночная оценка",
+        "telegram_score": "оценка Telegram/соцсигнала",
+        "has_retest": "ретест подтверждён",
+        "market_confirmation": "рыночное подтверждение",
+        "risk_level": "уровень риска",
+        "action_hint": "подсказка действия",
+        "message_intent": "смысл сообщения",
+        "risk_flags": "флаги риска",
+        "message_flags": "флаги сообщения",
+        "entry_forbidden": "вход запрещён",
+        "possible_news": "похоже на новость",
+        "weak_social_confirmation": "слабое соц/Telegram-подтверждение",
+        "message_possible_news": "сообщение похоже на новостной сигнал",
+        "no_market_confirmation": "нет рыночного подтверждения",
+    }
+
+    for old, new in replacements.items():
+        text = text.replace(old, new)
+
+    return text
+
+
+def translate_unlock_condition(text: Any) -> str:
+    raw = str(text)
+
+    replacements = {
+        "final_score must improve by": "итоговая оценка должна вырасти на",
+        "points to reach analytical target": "пунктов, чтобы достичь аналитического порога",
+        "market confirmation must become True": "должно появиться рыночное подтверждение",
+        "retest must be confirmed before entry review": "перед рассмотрением входа должен быть подтверждён ретест",
+        "Telegram/social confirmation must improve toward score": "Telegram/соцподтверждение должно улучшиться до оценки",
+        "risk flags must be cleared or reduced": "флаги риска должны исчезнуть или снизиться",
+        "action_hint must move away from entry_forbidden after safety checks": (
+            "после безопасных проверок подсказка действия должна перестать быть «вход запрещён»"
+        ),
+        "weak_social_confirmation": "слабое соц/Telegram-подтверждение",
+        "message_possible_news": "сообщение похоже на новостной сигнал",
+        "no_market_confirmation": "нет рыночного подтверждения",
+    }
+
+    for old, new in replacements.items():
+        raw = raw.replace(old, new)
+
+    return raw
 
 
 def build_payload() -> Dict[str, Any]:
@@ -486,32 +630,38 @@ def build_text_report(payload: Dict[str, Any]) -> str:
     lines: List[str] = []
     cards = as_list(payload.get("cards"))
 
-    lines.append("MANUAL REVIEW CARDS")
-    lines.append("===================")
-    lines.append(f"Created at: {payload.get('created_at')}")
-    lines.append(f"Safe to continue: {payload.get('safe_to_continue')}")
-    lines.append(f"Quick dashboard state: {payload.get('quick_dashboard_state')}")
-    lines.append(f"Cards count: {payload.get('cards_count')}")
-    lines.append(f"Summary by status: {payload.get('summary_by_status')}")
-    lines.append(f"Summary by safe decision: {payload.get('summary_by_safe_decision')}")
-    lines.append(f"Blockers: {format_list(payload.get('blockers'))}")
-    lines.append(f"Warnings: {format_list(payload.get('warnings'))}")
+    lines.append("КАРТОЧКИ РУЧНОЙ ПРОВЕРКИ")
+    lines.append("========================")
+    lines.append(f"Создано: {payload.get('created_at')}")
+    lines.append(f"Можно продолжать безопасный анализ: {translate_runtime_value(payload.get('safe_to_continue'))}")
+    lines.append(f"Состояние quick dashboard: {payload.get('quick_dashboard_state')}")
+    lines.append(f"Всего карточек: {payload.get('cards_count')}")
+    lines.append(
+        "Сводка по статусам: "
+        f"{translate_summary_keys(payload.get('summary_by_status'), translate_card_status)}"
+    )
+    lines.append(
+        "Сводка по решениям безопасности: "
+        f"{translate_summary_keys(payload.get('summary_by_safe_decision'), translate_safe_decision)}"
+    )
+    lines.append(f"Блокеры: {format_translated_list(payload.get('blockers'))}")
+    lines.append(f"Предупреждения: {format_translated_list(payload.get('warnings'))}")
     lines.append("")
 
-    lines.append("SAFETY")
-    lines.append("======")
-    lines.append("Analytical only: True")
-    lines.append("Orders enabled: False")
-    lines.append("Order execution allowed: False")
-    lines.append("Trading enabled: False")
-    lines.append("Telegram sending: False")
-    lines.append("Binance private API used: False")
+    lines.append("БЕЗОПАСНОСТЬ")
+    lines.append("============")
+    lines.append("Только аналитика: Да")
+    lines.append("Ордера включены: Нет")
+    lines.append("Создание ордеров разрешено: Нет")
+    lines.append("Торговля включена: Нет")
+    lines.append("Отправка Telegram включена: Нет")
+    lines.append("Binance private API использовался: Нет")
     lines.append("")
 
     if not cards:
-        lines.append("CARDS")
-        lines.append("=====")
-        lines.append("No manual review cards.")
+        lines.append("КАРТОЧКИ")
+        lines.append("========")
+        lines.append("Карточек для ручной проверки нет.")
         lines.append("")
     else:
         for index, raw_card in enumerate(cards, 1):
@@ -520,67 +670,93 @@ def build_text_report(payload: Dict[str, Any]) -> str:
             gaps = as_dict(card.get("gaps"))
             confirmations = as_dict(card.get("confirmations"))
 
-            lines.append(f"CARD {index}: {card.get('pair')} — {card.get('card_status')}")
-            lines.append("-" * (len(lines[-1])))
-            lines.append(f"Safe decision: {card.get('safe_decision')}")
-            lines.append(f"Forbidden action: {card.get('forbidden_action')}")
-            lines.append(f"Ticker: {card.get('ticker')}")
-            lines.append(f"Risk level: {card.get('risk_level')}")
-            lines.append(f"Decision: {card.get('decision')}")
-            lines.append(f"Watch status: {card.get('watch_status')}")
-            lines.append(f"Source groups: {format_list(card.get('source_groups'))}")
-            lines.append(f"Sources: {format_list(card.get('sources'))}")
+            card_title = (
+                f"КАРТОЧКА {index}: {card.get('pair')} — "
+                f"{translate_card_status(card.get('card_status'))}"
+            )
+            lines.append(card_title)
+            lines.append("-" * len(card_title))
+            lines.append(f"Решение безопасности: {translate_safe_decision(card.get('safe_decision'))}")
+            lines.append(f"Запрещённое действие: {translate_forbidden_action(card.get('forbidden_action'))}")
+            lines.append(f"Тикер: {card.get('ticker')}")
+            lines.append(f"Уровень риска: {card.get('risk_level')}")
+            lines.append(f"Решение сканера: {card.get('decision')}")
+            lines.append(f"Статус наблюдения: {card.get('watch_status')}")
+            lines.append(f"Группа источника: {format_list(card.get('source_groups'))}")
+            lines.append(f"Источники данных: {format_list(card.get('sources'))}")
             lines.append("")
-            lines.append("Scores:")
-            lines.append(f"- final_score: {scores.get('final_score')}")
-            lines.append(f"- market_score: {scores.get('market_score')}")
-            lines.append(f"- telegram_score: {scores.get('telegram_score')}")
-            lines.append(f"- risk_adjustment: {scores.get('risk_adjustment')}")
-            lines.append(f"- message_quality_score: {scores.get('message_quality_score')}")
+
+            lines.append("Оценки:")
+            lines.append(f"- Итоговая оценка: {scores.get('final_score')}")
+            lines.append(f"- Рыночная оценка: {scores.get('market_score')}")
+            lines.append(f"- Оценка Telegram/соцсигнала: {scores.get('telegram_score')}")
+            lines.append(f"- Поправка на риск: {scores.get('risk_adjustment')}")
+            lines.append(f"- Качество сообщения: {scores.get('message_quality_score')}")
             lines.append("")
-            lines.append("Gaps:")
-            lines.append(f"- final_score_gap: {gaps.get('final_score_gap')}")
-            lines.append(f"- market_score_gap: {gaps.get('market_score_gap')}")
-            lines.append(f"- telegram_score_gap: {gaps.get('telegram_score_gap')}")
-            lines.append(f"- missing_confirmations: {format_list(gaps.get('missing_confirmations'))}")
+
+            lines.append("Разрывы до допуска:")
+            lines.append(f"- Не хватает до аналитического порога: {gaps.get('final_score_gap')}")
+            lines.append(f"- Не хватает рыночного подтверждения: {gaps.get('market_score_gap')}")
+            lines.append(f"- Не хватает Telegram/соцподтверждения: {gaps.get('telegram_score_gap')}")
+            lines.append(
+                "- Недостающие подтверждения: "
+                f"{format_translated_list(gaps.get('missing_confirmations'))}"
+            )
             lines.append("")
-            lines.append("Confirmations:")
-            lines.append(f"- market_confirmation: {format_bool(confirmations.get('market_confirmation'))}")
-            lines.append(f"- has_retest: {format_bool(confirmations.get('has_retest'))}")
-            lines.append(f"- action_hint: {confirmations.get('action_hint')}")
+
+            lines.append("Подтверждения:")
+            lines.append(
+                "- Рыночное подтверждение: "
+                f"{translate_runtime_value(confirmations.get('market_confirmation'))}"
+            )
+            lines.append(
+                "- Ретест подтверждён: "
+                f"{translate_runtime_value(confirmations.get('has_retest'))}"
+            )
+            lines.append(
+                "- Подсказка действия: "
+                f"{translate_field_name(confirmations.get('action_hint'))}"
+            )
             lines.append("")
-            lines.append(f"Risk flags: {format_list(card.get('risk_flags'))}")
-            lines.append(f"Message risk flags: {format_list(card.get('message_risk_flags'))}")
-            lines.append(f"Block reasons: {format_list(card.get('block_reasons'))}")
-            lines.append(f"Reasons: {format_list(card.get('reasons'))}")
+
+            lines.append(f"Флаги риска: {format_translated_list(card.get('risk_flags'))}")
+            lines.append(
+                "Флаги риска из сообщения: "
+                f"{format_translated_list(card.get('message_risk_flags'))}"
+            )
+            lines.append(f"Причины блокировки: {format_list(card.get('block_reasons'))}")
+            lines.append(f"Подробные причины: {translate_reasons_text(card.get('reasons'))}")
             lines.append("")
-            lines.append(f"Risk explanation: {card.get('risk_explanation')}")
-            lines.append(f"Manager note: {card.get('manager_note')}")
-            lines.append(f"Recommended next step: {card.get('recommended_next_step')}")
+
+            lines.append(f"Объяснение риска: {card.get('risk_explanation')}")
+            lines.append(f"Заметка для менеджера: {card.get('manager_note')}")
+            lines.append(f"Рекомендуемый следующий шаг: {card.get('recommended_next_step')}")
             lines.append("")
-            lines.append("Unlock conditions:")
+
+            lines.append("Условия для разблокировки:")
             unlock_conditions = clean_list(card.get("unlock_conditions"))
             if unlock_conditions:
                 for item in unlock_conditions:
-                    lines.append(f"- {item}")
+                    lines.append(f"- {translate_unlock_condition(item)}")
             else:
-                lines.append("- none")
+                lines.append("- нет")
             lines.append("")
-            lines.append("Human checklist:")
+
+            lines.append("Чек-лист для человека:")
             checklist = clean_list(card.get("human_checklist"))
             if checklist:
                 for item in checklist:
                     lines.append(f"- {item}")
             else:
-                lines.append("- none")
+                lines.append("- нет")
             lines.append("")
 
-    lines.append("FINAL NOTE")
-    lines.append("==========")
-    lines.append("These cards are for manual review only.")
-    lines.append("Do not use them as permission to trade.")
-    lines.append("No orders are created.")
-    lines.append("No Telegram messages are sent.")
+    lines.append("ИТОГОВОЕ ПРИМЕЧАНИЕ")
+    lines.append("===================")
+    lines.append("Эти карточки предназначены только для ручного анализа.")
+    lines.append("Они не являются разрешением на сделку.")
+    lines.append("Ордера не создаются.")
+    lines.append("Telegram-сообщения не отправляются.")
     lines.append("")
 
     return "\n".join(lines)
@@ -602,35 +778,41 @@ def save_text(text: str, path: Path = OUTPUT_TXT_PATH) -> Path:
 
 
 def print_summary(payload: Dict[str, Any], json_path: Path, txt_path: Path) -> None:
-    print("MANUAL REVIEW CARDS")
-    print("===================")
-    print("Mode: analytical only")
-    print("Safe to continue:", payload.get("safe_to_continue"))
-    print("Quick dashboard state:", payload.get("quick_dashboard_state"))
-    print("Cards count:", payload.get("cards_count"))
-    print("Summary by status:", payload.get("summary_by_status"))
-    print("Summary by safe decision:", payload.get("summary_by_safe_decision"))
+    print("КАРТОЧКИ РУЧНОЙ ПРОВЕРКИ")
+    print("========================")
+    print("Режим: только аналитика")
+    print("Можно продолжать безопасный анализ:", payload.get("safe_to_continue"))
+    print("Состояние quick dashboard:", payload.get("quick_dashboard_state"))
+    print("Всего карточек:", payload.get("cards_count"))
+    print(
+        "Сводка по статусам:",
+        translate_summary_keys(payload.get("summary_by_status"), translate_card_status),
+    )
+    print(
+        "Сводка по решениям безопасности:",
+        translate_summary_keys(payload.get("summary_by_safe_decision"), translate_safe_decision),
+    )
     print("JSON output:", json_path)
     print("TXT output:", txt_path)
 
     if payload.get("blockers"):
-        print("Blockers:", ", ".join(str(item) for item in payload["blockers"]))
+        print("Блокеры:", ", ".join(str(item) for item in payload["blockers"]))
     else:
-        print("Blockers: none")
+        print("Блокеры: нет")
 
     if payload.get("warnings"):
-        print("Warnings:", ", ".join(str(item) for item in payload["warnings"]))
+        print("Предупреждения:", ", ".join(str(item) for item in payload["warnings"]))
     else:
-        print("Warnings: none")
+        print("Предупреждения: нет")
 
     print()
-    print("SAFETY")
-    print("======")
-    print("[OK] This report did not create orders.")
-    print("[OK] This report did not start trading bot.")
-    print("[OK] This report did not call Binance private API.")
-    print("[OK] This report did not send Telegram messages.")
-    print("[OK] This report only reads existing JSON reports.")
+    print("БЕЗОПАСНОСТЬ")
+    print("============")
+    print("[OK] Этот отчёт не создавал ордера.")
+    print("[OK] Этот отчёт не запускал торгового бота.")
+    print("[OK] Этот отчёт не вызывал Binance private API.")
+    print("[OK] Этот отчёт не отправлял Telegram-сообщения.")
+    print("[OK] Этот отчёт только читает существующие JSON-отчёты.")
 
 
 def main() -> None:
