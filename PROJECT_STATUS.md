@@ -26,7 +26,7 @@ It must not:
 
 Current stable tag:
 
-scanner-safe-risk-filter-backtest-v1
+scanner-safe-release-backtest-check-v1
 scanner-safe-status-release-tool-v1
 ```
 
