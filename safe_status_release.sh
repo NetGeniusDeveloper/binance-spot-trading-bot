@@ -404,6 +404,20 @@ print("Quick dashboard Telegram API used:", dashboard.get("telegram_api_used"))
 print("Quick dashboard blocked risk count:", dashboard.get("blocked_risk_count"))
 print("Quick dashboard watchlist count:", dashboard.get("watchlist_count"))
 
+cockpit = dashboard.get("decision_cockpit", {})
+
+if not isinstance(cockpit, dict):
+    raise SystemExit("[ERROR] Quick dashboard decision cockpit is missing")
+
+print("Quick dashboard cockpit state:", cockpit.get("state"))
+print("Quick dashboard cockpit action allowed:", cockpit.get("action_allowed"))
+
+if cockpit.get("action_allowed") is not False:
+    raise SystemExit("[ERROR] Quick dashboard cockpit allowed unsafe action")
+
+if cockpit.get("allowed_action") != "manual_review_only":
+    raise SystemExit("[ERROR] Quick dashboard cockpit allowed_action is unexpected")
+
 if payload.get("safe_to_continue") is not True:
     raise SystemExit("[ERROR] Quick dashboard is not safe to continue")
 

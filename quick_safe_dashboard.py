@@ -86,6 +86,265 @@ def get_nested(payload: Dict[str, Any], *keys: str, default: Any = None) -> Any:
     return default if current is None else current
 
 
+def first_existing(item: Dict[str, Any], keys: List[str], default: Any = None) -> Any:
+    for key in keys:
+        value = item.get(key)
+        if value not in (None, "", [], {}):
+            return value
+    return default
+
+
+def format_pair(item: Dict[str, Any]) -> str:
+    return str(
+        first_existing(
+            item,
+            ["pair", "symbol", "ticker", "asset"],
+            "UNKNOWN",
+        )
+    )
+
+
+def short_risk_flags(item: Dict[str, Any], limit: int = 4) -> List[str]:
+    flags = as_list(item.get("risk_flags"))
+
+    if not flags:
+        flags = as_list(item.get("message_flags"))
+
+    result = [str(flag) for flag in flags if str(flag).strip()]
+
+    return result[:limit]
+
+
+def extract_top_blocked_items(blocked_risk: Dict[str, Any], limit: int = 5) -> List[Dict[str, Any]]:
+    items = []
+
+    for raw_item in as_list(blocked_risk.get("blocked_items")):
+        item = as_dict(raw_item)
+        if not item:
+            continue
+
+        items.append(
+            {
+                "pair": format_pair(item),
+                "risk_level": item.get("risk_level"),
+                "final_score": item.get("final_score"),
+                "market_score": item.get("market_score"),
+                "telegram_score": item.get("telegram_score"),
+                "unlock_score_gap": item.get("unlock_score_gap"),
+                "risk_flags": short_risk_flags(item),
+                "recommended_next_step": item.get("recommended_next_step"),
+                "manager_note": item.get("manager_note"),
+            }
+        )
+
+    def sort_key(item: Dict[str, Any]) -> float:
+        gap = item.get("unlock_score_gap")
+        try:
+            return float(gap)
+        except Exception:
+            return 999999.0
+
+    return sorted(items, key=sort_key)[:limit]
+
+
+def extract_watchlist_preview(watchlist: Dict[str, Any], limit: int = 5) -> List[Dict[str, Any]]:
+    items = []
+
+    for raw_item in as_list(watchlist.get("watchlist_items")):
+        item = as_dict(raw_item)
+        if not item:
+            continue
+
+        items.append(
+            {
+                "pair": format_pair(item),
+                "watch_status": item.get("watch_status"),
+                "decision": item.get("decision"),
+                "risk_level": item.get("risk_level"),
+                "final_score": item.get("final_score"),
+                "risk_flags": short_risk_flags(item),
+                "recommended_next_step": item.get("recommended_next_step"),
+            }
+        )
+
+    return items[:limit]
+
+
+def extract_closest_to_unlock(risk_filter: Dict[str, Any], limit: int = 5) -> List[Dict[str, Any]]:
+    items = []
+
+    for raw_item in as_list(risk_filter.get("closest_to_unlock")):
+        item = as_dict(raw_item)
+        if not item:
+            continue
+
+        items.append(
+            {
+                "pair": format_pair(item),
+                "bucket": item.get("bucket"),
+                "final_score_gap": item.get("final_score_gap"),
+                "market_score_gap": item.get("market_score_gap"),
+                "telegram_score_gap": item.get("telegram_score_gap"),
+                "risk_flags": short_risk_flags(item),
+            }
+        )
+
+    def sort_key(item: Dict[str, Any]) -> float:
+        gap = item.get("final_score_gap")
+        try:
+            return float(gap)
+        except Exception:
+            return 999999.0
+
+    return sorted(items, key=sort_key)[:limit]
+
+
+def build_manual_checklist(
+    pipeline: Dict[str, Any],
+    safety_gate: Dict[str, Any],
+    risk_filter: Dict[str, Any],
+    blocked_risk: Dict[str, Any],
+    telegram: Dict[str, Any],
+) -> List[str]:
+    checklist: List[str] = []
+
+    total_decisions = risk_filter.get("total_decisions") or 0
+    blocked_count = blocked_risk.get("blocked_count") or 0
+
+    try:
+        total_decisions = int(total_decisions)
+    except Exception:
+        total_decisions = 0
+
+    try:
+        blocked_count = int(blocked_count)
+    except Exception:
+        blocked_count = 0
+
+    if total_decisions <= 0:
+        checklist.append("Новых аналитических решений нет: проверьте свежесть источников и повторите safe runner позже.")
+    else:
+        checklist.append("Проверить каждую пару из blocked/watchlist вручную перед любыми действиями.")
+
+    if blocked_count > 0:
+        checklist.append("Не использовать заблокированные пары для входа; сначала должны исчезнуть risk flags.")
+        checklist.append("Проверить market confirmation, ретест и Telegram/social confirmation.")
+
+    if safety_gate.get("review_required") is True:
+        checklist.append("Safety gate требует ручного просмотра отчётов перед дальнейшими действиями.")
+
+    if telegram.get("telegram_send_enabled") is not True:
+        checklist.append("Telegram-отправка выключена: это безопасно, уведомления не отправлялись.")
+
+    if telegram.get("telegram_manual_confirm") is not True:
+        checklist.append("Ручное подтверждение Telegram выключено: автоматической отправки нет.")
+
+    if pipeline.get("safe_pipeline") is True:
+        checklist.append("Safe pipeline зелёный: можно продолжать только аналитический разбор, не торговлю.")
+
+    return checklist
+
+
+def build_decision_cockpit(
+    pipeline: Dict[str, Any],
+    safety_gate: Dict[str, Any],
+    risk_filter: Dict[str, Any],
+    scenario_matrix: Dict[str, Any],
+    blocked_risk: Dict[str, Any],
+    watchlist: Dict[str, Any],
+    telegram: Dict[str, Any],
+) -> Dict[str, Any]:
+    total_decisions = risk_filter.get("total_decisions") or 0
+    blocked_count = blocked_risk.get("blocked_count") or 0
+    watchlist_count = watchlist.get("watchlist_count") or 0
+
+    try:
+        total_decisions = int(total_decisions)
+    except Exception:
+        total_decisions = 0
+
+    try:
+        blocked_count = int(blocked_count)
+    except Exception:
+        blocked_count = 0
+
+    try:
+        watchlist_count = int(watchlist_count)
+    except Exception:
+        watchlist_count = 0
+
+    telegram_sent = telegram.get("telegram_message_sent") is True
+    telegram_api_used = telegram.get("telegram_api_used") is True
+
+    action_allowed = False
+
+    if pipeline.get("safe_pipeline") is not True:
+        state = "pipeline_not_safe"
+        summary = "Конвейер не в безопасном состоянии. Ничего не делать, кроме диагностики."
+    elif safety_gate.get("safety_gate_ok") is not True:
+        state = "safety_gate_blocked"
+        summary = "Safety gate не разрешает продолжение. Нужна диагностика."
+    elif scenario_matrix.get("failed_count") not in (0, None):
+        state = "scenario_matrix_failed"
+        summary = "Synthetic scenario matrix содержит ошибки. Нельзя доверять фильтру до исправления."
+    elif telegram_sent or telegram_api_used:
+        state = "telegram_activity_detected"
+        summary = "Обнаружена Telegram-активность. Нужно проверить, была ли она ожидаемой."
+    elif total_decisions <= 0:
+        state = "no_decisions"
+        summary = "Новых аналитических решений нет. Можно только повторить сбор данных позже."
+    elif blocked_count == total_decisions:
+        state = "all_decisions_blocked"
+        summary = "Все текущие решения заблокированы риск-фильтром. Вход запрещён."
+    else:
+        state = "manual_review_required"
+        summary = "Есть решения для ручного просмотра, но автоматическая торговля всё равно запрещена."
+
+    why_blocked = []
+
+    risk_flags = as_dict(blocked_risk.get("summary_by_risk_flag"))
+    if risk_flags:
+        why_blocked.append(f"Активные risk flags: {risk_flags}")
+
+    missing = as_dict(risk_filter.get("summary_by_missing_confirmation"))
+    if missing:
+        why_blocked.append(f"Не хватает подтверждений: {missing}")
+
+    if blocked_count > 0:
+        why_blocked.append(f"Заблокировано риск-фильтром: {blocked_count}")
+
+    if watchlist_count > 0:
+        why_blocked.append(f"В watchlist только для наблюдения: {watchlist_count}")
+
+    if telegram.get("telegram_send_enabled") is not True:
+        why_blocked.append("Telegram send выключен.")
+
+    if telegram.get("telegram_manual_confirm") is not True:
+        why_blocked.append("Telegram manual confirm выключен.")
+
+    return {
+        "state": state,
+        "summary": summary,
+        "action_allowed": action_allowed,
+        "allowed_action": "manual_review_only",
+        "forbidden_action": "no_orders_no_live_trading_no_auto_telegram",
+        "total_decisions": total_decisions,
+        "blocked_count": blocked_count,
+        "watchlist_count": watchlist_count,
+        "why_blocked": why_blocked,
+        "closest_to_unlock": extract_closest_to_unlock(risk_filter),
+        "top_blocked_items": extract_top_blocked_items(blocked_risk),
+        "watchlist_preview": extract_watchlist_preview(watchlist),
+        "manual_checklist": build_manual_checklist(
+            pipeline=pipeline,
+            safety_gate=safety_gate,
+            risk_filter=risk_filter,
+            blocked_risk=blocked_risk,
+            telegram=telegram,
+        ),
+    }
+
+
 def build_payload() -> Dict[str, Any]:
     loaded_reports = {
         name: load_json(path)
@@ -220,6 +479,18 @@ def build_payload() -> Dict[str, Any]:
         "watchlist_decisions": watchlist.get("summary_by_decision"),
     }
 
+    decision_cockpit = build_decision_cockpit(
+        pipeline=pipeline,
+        safety_gate=safety_gate,
+        risk_filter=risk_filter,
+        scenario_matrix=scenario_matrix,
+        blocked_risk=blocked_risk,
+        watchlist=watchlist,
+        telegram=telegram,
+    )
+
+    dashboard["decision_cockpit"] = decision_cockpit
+
     return {
         "source": "quick_safe_dashboard",
         "created_at": datetime.now().isoformat(timespec="seconds"),
@@ -261,6 +532,54 @@ def build_text_report(payload: Dict[str, Any]) -> str:
     lines.append(f"Safe to continue: {payload.get('safe_to_continue')}")
     lines.append(f"Blockers: {format_list(payload.get('blockers'))}")
     lines.append(f"Warnings: {format_list(payload.get('warnings'))}")
+    lines.append("")
+
+    cockpit = as_dict(dashboard.get("decision_cockpit"))
+
+    lines.append("DECISION COCKPIT")
+    lines.append("================")
+    lines.append(f"State: {cockpit.get('state')}")
+    lines.append(f"Summary: {cockpit.get('summary')}")
+    lines.append(f"Action allowed: {format_bool(cockpit.get('action_allowed'))}")
+    lines.append(f"Allowed action: {cockpit.get('allowed_action')}")
+    lines.append(f"Forbidden action: {cockpit.get('forbidden_action')}")
+    lines.append("")
+
+    lines.append("WHY BLOCKED / LIMITED")
+    lines.append("=====================")
+    for reason in as_list(cockpit.get("why_blocked")):
+        lines.append(f"- {reason}")
+    if not as_list(cockpit.get("why_blocked")):
+        lines.append("none")
+    lines.append("")
+
+    lines.append("CLOSEST TO UNLOCK")
+    lines.append("=================")
+    closest_items = as_list(cockpit.get("closest_to_unlock"))
+    if closest_items:
+        for item in closest_items:
+            item = as_dict(item)
+            lines.append(
+                "- {pair}: bucket={bucket}, final_gap={final_gap}, market_gap={market_gap}, "
+                "telegram_gap={telegram_gap}, risks={risks}".format(
+                    pair=item.get("pair"),
+                    bucket=item.get("bucket"),
+                    final_gap=item.get("final_score_gap"),
+                    market_gap=item.get("market_score_gap"),
+                    telegram_gap=item.get("telegram_score_gap"),
+                    risks=format_list(item.get("risk_flags")),
+                )
+            )
+    else:
+        lines.append("none")
+    lines.append("")
+
+    lines.append("HUMAN CHECKLIST")
+    lines.append("===============")
+    for item in as_list(cockpit.get("manual_checklist")):
+        lines.append(f"- {item}")
+    if not as_list(cockpit.get("manual_checklist")):
+        lines.append("none")
     lines.append("")
 
     lines.append("PIPELINE")
@@ -367,8 +686,12 @@ def print_summary(payload: Dict[str, Any], json_path: Path, txt_path: Path) -> N
     print("TXT output:", txt_path)
     print()
 
+    cockpit = as_dict(dashboard.get("decision_cockpit"))
+
     print("ONE SCREEN STATUS")
     print("=================")
+    print("Cockpit:", cockpit.get("state"), "|", cockpit.get("summary"))
+    print("Action allowed:", cockpit.get("action_allowed"), "|", cockpit.get("allowed_action"))
     print("Pipeline:", dashboard.get("pipeline_status"), "| safe:", dashboard.get("safe_pipeline"))
     print("Safety gate:", dashboard.get("safety_gate_status"), "| ok:", dashboard.get("safety_gate_ok"))
     print("Risk filter buckets:", dashboard.get("risk_filter_buckets"))
@@ -399,6 +722,20 @@ def print_summary(payload: Dict[str, Any], json_path: Path, txt_path: Path) -> N
         "watchlist=",
         dashboard.get("watchlist_count"),
     )
+
+    closest_items = as_list(cockpit.get("closest_to_unlock"))
+    if closest_items:
+        print("Closest to unlock:")
+        for item in closest_items[:3]:
+            item = as_dict(item)
+            print(
+                "- {pair}: final_gap={final_gap}, market_gap={market_gap}, telegram_gap={telegram_gap}".format(
+                    pair=item.get("pair"),
+                    final_gap=item.get("final_score_gap"),
+                    market_gap=item.get("market_score_gap"),
+                    telegram_gap=item.get("telegram_score_gap"),
+                )
+            )
 
     if payload.get("blockers"):
         print("Blockers:", ", ".join(str(item) for item in payload["blockers"]))
