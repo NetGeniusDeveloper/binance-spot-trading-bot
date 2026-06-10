@@ -316,7 +316,7 @@ def build_text_report(payload: Dict[str, Any]) -> str:
     lines.append("No orders are created.")
     lines.append("")
 
-    return "\\n".join(lines)
+    return "\n".join(lines)
 
 
 def save_json(payload: Dict[str, Any], path: Path = OUTPUT_JSON_PATH) -> Path:
