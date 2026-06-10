@@ -1855,3 +1855,56 @@ Commands:
 git tag -a scanner-safe-project-status-scenario-matrix-report-v1 -m "Stable project status after scanner-safe-scenario-matrix-report-v1"
 git push origin scanner-safe-project-status-scenario-matrix-report-v1
 
+---
+
+### scanner-safe-scenario-matrix-daily-runner-v1
+
+Purpose:
+
+Add scenario matrix report to daily safe runner
+
+Release mode:
+
+Created through safe_status_release.sh --with-docs.
+
+What was changed:
+
+- run_daily_scanner_agent_safe.sh
+- run_full_scanner_agent_notification_pipeline_safe.sh
+
+Safety result:
+
+Gate status: safe_manual_review
+Safety gate OK: True
+Review required: True
+Telegram message sent: False
+Orders enabled: False
+Trading enabled: False
+Binance API used: False
+Binance orders created: False
+
+Validation:
+
+1. cd /root/binance-spot-trading-bot
+2. source .venv/bin/activate
+3. ./safe_status_release.sh --check-only
+
+Stable point:
+
+tag: scanner-safe-scenario-matrix-daily-runner-v1
+commit: 5f04180
+branch: main
+
+---
+
+## Recommended next stable status tag
+
+After committing this documentation status update, create a new tag:
+
+scanner-safe-project-status-scenario-matrix-daily-runner-v1
+
+Commands:
+
+git tag -a scanner-safe-project-status-scenario-matrix-daily-runner-v1 -m "Stable project status after scanner-safe-scenario-matrix-daily-runner-v1"
+git push origin scanner-safe-project-status-scenario-matrix-daily-runner-v1
+

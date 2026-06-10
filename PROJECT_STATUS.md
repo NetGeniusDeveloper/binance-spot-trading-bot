@@ -26,7 +26,7 @@ It must not:
 
 Current stable tag:
 
-scanner-safe-scenario-matrix-report-v1
+scanner-safe-scenario-matrix-daily-runner-v1
 scanner-safe-status-release-tool-v1
 ```
 
