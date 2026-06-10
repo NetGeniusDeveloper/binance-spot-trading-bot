@@ -156,7 +156,8 @@ python -m py_compile \
   health_check.py \
   scanner_agent_safety_gate_report.py \
   scanner_agent_risk_filter_backtest.py \
-  scanner_agent_scenario_matrix_report.py
+  scanner_agent_scenario_matrix_report.py \
+  quick_safe_dashboard.py
 
 bash -n run_daily_scanner_agent_safe.sh
 bash -n run_daily_scanner_agent_cron_safe.sh
@@ -375,6 +376,52 @@ PYSCENARIO
 
 echo
 echo "======================================"
+echo "6C. QUICK SAFE DASHBOARD CHECK"
+echo "======================================"
+python quick_safe_dashboard.py
+
+python - <<'PYDASH'
+import json
+from pathlib import Path
+
+path = Path("reports/quick_safe_dashboard.json")
+
+if not path.exists():
+    raise SystemExit("[ERROR] Missing reports/quick_safe_dashboard.json")
+
+payload = json.loads(path.read_text(encoding="utf-8"))
+dashboard = payload.get("dashboard", {})
+
+if not isinstance(dashboard, dict):
+    dashboard = {}
+
+print("Quick dashboard safe to continue:", payload.get("safe_to_continue"))
+print("Quick dashboard pipeline status:", dashboard.get("pipeline_status"))
+print("Quick dashboard safety gate:", dashboard.get("safety_gate_status"))
+print("Quick dashboard scenario matrix failed:", dashboard.get("scenario_matrix_failed"))
+print("Quick dashboard Telegram sent:", dashboard.get("telegram_message_sent"))
+print("Quick dashboard Telegram API used:", dashboard.get("telegram_api_used"))
+print("Quick dashboard blocked risk count:", dashboard.get("blocked_risk_count"))
+print("Quick dashboard watchlist count:", dashboard.get("watchlist_count"))
+
+if payload.get("safe_to_continue") is not True:
+    raise SystemExit("[ERROR] Quick dashboard is not safe to continue")
+
+for key in [
+    "orders_enabled",
+    "order_execution_allowed",
+    "trading_enabled",
+    "telegram_sending",
+    "binance_private_api_used",
+]:
+    if payload.get(key) is not False:
+        raise SystemExit(f"[ERROR] Quick dashboard unsafe flag: {key}")
+
+print("[OK] Quick safe dashboard allows release")
+PYDASH
+
+echo
+echo "======================================"
 echo "7. REPORT SNAPSHOT"
 echo "======================================"
 
@@ -396,6 +443,10 @@ cat reports/scanner_agent_risk_filter_backtest.txt
 echo
 echo "--- scanner_agent_scenario_matrix_report.txt ---"
 cat reports/scanner_agent_scenario_matrix_report.txt
+
+echo
+echo "--- quick_safe_dashboard.txt ---"
+cat reports/quick_safe_dashboard.txt
 
 if [ "${CHECK_ONLY}" = "true" ]; then
   echo

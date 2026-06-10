@@ -39,6 +39,8 @@ RISK_BACKTEST_TXT="reports/scanner_agent_risk_filter_backtest.txt"
 RISK_BACKTEST_JSON="reports/scanner_agent_risk_filter_backtest.json"
 SCENARIO_MATRIX_TXT="reports/scanner_agent_scenario_matrix_report.txt"
 SCENARIO_MATRIX_JSON="reports/scanner_agent_scenario_matrix_report.json"
+QUICK_DASHBOARD_TXT="reports/quick_safe_dashboard.txt"
+QUICK_DASHBOARD_JSON="reports/quick_safe_dashboard.json"
 
 echo "======================================"
 echo "DAILY SCANNER AGENT SAFE RUN"
@@ -514,6 +516,54 @@ fi
 
 echo
 echo "======================================"
+echo "8B. QUICK SAFE DASHBOARD"
+echo "======================================"
+python quick_safe_dashboard.py || echo "[WARN] Quick safe dashboard failed"
+
+if [ -f "${QUICK_DASHBOARD_TXT}" ]; then
+  cat "${QUICK_DASHBOARD_TXT}"
+else
+  echo "[WARN] Missing quick safe dashboard TXT: ${QUICK_DASHBOARD_TXT}"
+fi
+
+echo
+echo "Quick safe dashboard JSON: ${QUICK_DASHBOARD_JSON}"
+if [ -f "${QUICK_DASHBOARD_JSON}" ]; then
+  python - <<'PYDASH'
+import json
+from pathlib import Path
+
+path = Path("reports/quick_safe_dashboard.json")
+
+try:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+except Exception as ex:
+    print("[WARN] Cannot read quick dashboard JSON:", ex)
+    raise SystemExit
+
+dashboard = payload.get("dashboard", {})
+
+if not isinstance(dashboard, dict):
+    dashboard = {}
+
+print("Dashboard safe to continue:", payload.get("safe_to_continue"))
+print("Dashboard pipeline status:", dashboard.get("pipeline_status"))
+print("Dashboard safety gate:", dashboard.get("safety_gate_status"))
+print("Dashboard risk filter buckets:", dashboard.get("risk_filter_buckets"))
+print("Dashboard scenario matrix failed:", dashboard.get("scenario_matrix_failed"))
+print("Dashboard Telegram sent:", dashboard.get("telegram_message_sent"))
+print("Dashboard Telegram API used:", dashboard.get("telegram_api_used"))
+print("Dashboard blocked risk count:", dashboard.get("blocked_risk_count"))
+print("Dashboard watchlist count:", dashboard.get("watchlist_count"))
+print("Dashboard blockers:", ", ".join(payload.get("blockers", [])) or "none")
+print("Dashboard warnings:", ", ".join(payload.get("warnings", [])) or "none")
+PYDASH
+else
+  echo "[WARN] Missing quick safe dashboard JSON: ${QUICK_DASHBOARD_JSON}"
+fi
+
+echo
+echo "======================================"
 echo "9. SAFETY RESULT"
 echo "======================================"
 echo "[OK] This daily runner did not create orders"
@@ -525,6 +575,7 @@ echo "[OK] Channel config recommendations were printed for manual review"
 echo "[OK] Watchlist report was printed for manual review"
 echo "[OK] Risk filter backtest was printed for manual review"
 echo "[OK] Scenario matrix report was printed for manual review"
+echo "[OK] Quick safe dashboard was printed for manual review"
 echo "[OK] Telegram sending still depends on safety flags"
 
 echo
