@@ -1,4 +1,5 @@
 import json
+import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
@@ -692,6 +693,55 @@ def manager_brief_item_line(item: Dict[str, Any], index: int) -> List[str]:
     return lines
 
 
+
+
+def build_manager_only_report() -> str:
+    manager_brief = load_manager_brief_summary()
+    manager_items = as_list(manager_brief.get("brief_items"))
+
+    lines: List[str] = []
+
+    lines.append("МЕНЕДЖЕРСКАЯ СВОДКА")
+    lines.append("===================")
+    lines.append(f"Отчёт доступен: {format_bool(manager_brief.get('available'))}")
+    lines.append(f"Всего карточек: {manager_brief.get('cards_count')}")
+    lines.append(f"Итог: {manager_brief.get('summary')}")
+    lines.append("")
+
+    if manager_items:
+        for raw_item in manager_items[:5]:
+            item = as_dict(raw_item)
+            lines.append(f"- {item.get('pair')} — {item.get('safe_decision_ru')}")
+            lines.append(f"  Риск: {item.get('risk_level')}")
+            lines.append(
+                "  Оценки: "
+                f"итоговая={item.get('final_score')}, "
+                f"рынок={item.get('market_score')}, "
+                f"Telegram/соцсигнал={item.get('telegram_score')}"
+            )
+            lines.append(f"  Причина: {item.get('manager_reason')}")
+            lines.append(f"  Ждать: {item.get('wait_for_short')}")
+            lines.append(f"  Следующий шаг: {item.get('recommended_next_step')}")
+            lines.append("")
+    else:
+        lines.append("Нет данных для менеджерской сводки.")
+        lines.append("")
+
+    lines.append("БЕЗОПАСНОСТЬ")
+    lines.append("============")
+    lines.append("Ордера не создавались.")
+    lines.append("Live-торговля не включалась.")
+    lines.append("Binance private API не использовался.")
+    lines.append("Telegram-сообщения не отправлялись.")
+    lines.append("Режим только читает существующие JSON-отчёты.")
+    lines.append("")
+    lines.append("ПРИМЕЧАНИЕ")
+    lines.append("==========")
+    lines.append("Это краткая сводка для ручного анализа. Она не является разрешением на сделку.")
+
+    return "\n".join(lines)
+
+
 def build_text_report(payload: Dict[str, Any]) -> str:
     dashboard = as_dict(payload.get("dashboard"))
     lines: List[str] = []
@@ -1023,9 +1073,16 @@ def print_summary(payload: Dict[str, Any], json_path: Path, txt_path: Path) -> N
 
 
 def main() -> None:
+    manager_only = "--manager" in sys.argv[1:]
+
     payload = build_payload()
     json_path = save_json(payload)
     txt_path = save_text(build_text_report(payload))
+
+    if manager_only:
+        print(build_manager_only_report())
+        return
+
     print_summary(payload, json_path, txt_path)
 
 
