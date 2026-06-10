@@ -249,3 +249,50 @@ Create a new stable tag only after testing:
 git tag -a <new-stable-tag> -m "Stable release description"
 git push origin <new-stable-tag>
 ```
+
+---
+
+## Termux/Ubuntu main menu integration status
+
+Status version: scanner-safe-project-status-main-menu-docs-v1
+
+The local Termux/Ubuntu main menu integration is completed and documented.
+
+Local menu file:
+
+    /root/main-menu.sh
+
+Recovery documentation:
+
+    docs/TERMUX_MAIN_MENU_BINANCE.md
+
+Current Binance menu title:
+
+    BINANCE SPOT БОТ / БЕЗОПАСНЫЙ СКАНЕР
+
+The Binance menu section includes:
+
+    1) Быстрая безопасная панель
+    2) Менеджерская сводка
+    3) Короткий статус безопасности
+    4) Ежедневный безопасный запуск
+    5) Безопасная проверка релиза
+    6) Полный безопасный конвейер
+    7) Сводка отчётов
+    13) Показать безопасные команды запуска
+
+Safety status:
+
+    DRY_RUN=True
+    SEND_TELEGRAM_MESSAGE=False
+    WALLET_USAGE_PERCENT=0.0
+    Orders disabled
+    Live trading disabled
+    Telegram auto-send disabled
+
+The menu is intended only for safe analytical work. It must not be used to enable live trading or create real Binance orders without a separate audit.
+
+Related stable tags:
+
+    scanner-safe-main-menu-docs-v1
+    scanner-safe-project-status-main-menu-docs-v1
