@@ -35,6 +35,8 @@ BLOCKED_RISK_TXT="reports/scanner_agent_blocked_risk_report.txt"
 BLOCKED_RISK_JSON="reports/scanner_agent_blocked_risk_report.json"
 WATCHLIST_TXT="reports/scanner_agent_watchlist_report.txt"
 WATCHLIST_JSON="reports/scanner_agent_watchlist_report.json"
+RISK_BACKTEST_TXT="reports/scanner_agent_risk_filter_backtest.txt"
+RISK_BACKTEST_JSON="reports/scanner_agent_risk_filter_backtest.json"
 
 echo "======================================"
 echo "DAILY SCANNER AGENT SAFE RUN"
@@ -195,6 +197,44 @@ print("Watchlist warnings:", ", ".join(payload.get("warnings", [])) or "none")
 PYWL
 else
   echo "[WARN] Missing watchlist JSON: ${WATCHLIST_JSON}"
+fi
+
+echo
+echo "======================================"
+echo "3D. RISK FILTER BACKTEST"
+echo "======================================"
+python scanner_agent_risk_filter_backtest.py || echo "[WARN] Risk filter backtest failed"
+
+if [ -f "${RISK_BACKTEST_TXT}" ]; then
+  cat "${RISK_BACKTEST_TXT}"
+else
+  echo "[WARN] Missing risk filter backtest TXT: ${RISK_BACKTEST_TXT}"
+fi
+
+echo
+echo "Risk filter backtest JSON: ${RISK_BACKTEST_JSON}"
+if [ -f "${RISK_BACKTEST_JSON}" ]; then
+  python - <<'PYRFBT'
+import json
+from pathlib import Path
+
+path = Path("reports/scanner_agent_risk_filter_backtest.json")
+
+try:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+except Exception as ex:
+    print("[WARN] Cannot read risk filter backtest JSON:", ex)
+    raise SystemExit
+
+print("Risk filter backtest safe to continue:", payload.get("safe_to_continue"))
+print("Risk filter total decisions:", payload.get("total_decisions"))
+print("Risk filter buckets:", payload.get("summary_by_bucket"))
+print("Risk filter gaps:", payload.get("gap_summary"))
+print("Risk filter blockers:", ", ".join(payload.get("blockers", [])) or "none")
+print("Risk filter warnings:", ", ".join(payload.get("warnings", [])) or "none")
+PYRFBT
+else
+  echo "[WARN] Missing risk filter backtest JSON: ${RISK_BACKTEST_JSON}"
 fi
 
 echo
@@ -437,6 +477,7 @@ echo "[OK] Final pipeline summary was printed for manual review"
 echo "[OK] Channel quality summary was printed for manual review"
 echo "[OK] Channel config recommendations were printed for manual review"
 echo "[OK] Watchlist report was printed for manual review"
+echo "[OK] Risk filter backtest was printed for manual review"
 echo "[OK] Telegram sending still depends on safety flags"
 
 echo

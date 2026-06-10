@@ -48,6 +48,7 @@ python -m py_compile \
   scanner_agent_decision_report.py \
   scanner_agent_blocked_risk_report.py \
   scanner_agent_watchlist_report.py \
+  scanner_agent_risk_filter_backtest.py \
   scanner_agent_notification_report.py \
   scanner_agent_telegram_message_preview.py \
   scanner_agent_telegram_sender_dry_run.py \
@@ -105,6 +106,12 @@ echo "======================================"
 echo "6B. SCANNER AGENT WATCHLIST REPORT SAFE RUN"
 echo "======================================"
 python scanner_agent_watchlist_report.py
+
+echo
+echo "======================================"
+echo "6C. SCANNER AGENT RISK FILTER BACKTEST SAFE RUN"
+echo "======================================"
+python scanner_agent_risk_filter_backtest.py
 
 echo
 echo "======================================"
@@ -228,6 +235,8 @@ echo "Blocked risk report JSON: reports/scanner_agent_blocked_risk_report.json"
 echo "Blocked risk report TXT: reports/scanner_agent_blocked_risk_report.txt"
 echo "Watchlist report JSON: reports/scanner_agent_watchlist_report.json"
 echo "Watchlist report TXT: reports/scanner_agent_watchlist_report.txt"
+echo "Risk filter backtest JSON: reports/scanner_agent_risk_filter_backtest.json"
+echo "Risk filter backtest TXT: reports/scanner_agent_risk_filter_backtest.txt"
 echo "Agent notification report TXT: reports/scanner_agent_notification_report.txt"
 echo "Telegram message preview TXT: reports/scanner_agent_telegram_message_preview.txt"
 echo "Telegram sender dry-run JSON: reports/scanner_agent_telegram_sender_dry_run.json"
