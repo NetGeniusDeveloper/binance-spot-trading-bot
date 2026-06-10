@@ -972,6 +972,22 @@ def print_summary(payload: Dict[str, Any], json_path: Path, txt_path: Path) -> N
         manager_brief.get("summary"),
     )
 
+    manager_items = as_list(manager_brief.get("brief_items"))
+    if manager_items:
+        print("Менеджерская сводка:")
+        for raw_item in manager_items[:5]:
+            item = as_dict(raw_item)
+            print(
+                "- {pair} — {decision}; риск={risk}; ждать: {wait_for}".format(
+                    pair=item.get("pair"),
+                    decision=item.get("safe_decision_ru"),
+                    risk=item.get("risk_level"),
+                    wait_for=item.get("wait_for_short"),
+                )
+            )
+    else:
+        print("Менеджерская сводка: нет данных")
+
     closest_items = as_list(cockpit.get("closest_to_unlock"))
     if closest_items:
         print("Closest to unlock:")
