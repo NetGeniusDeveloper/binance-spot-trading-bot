@@ -373,3 +373,40 @@ Related stable tags:
     scanner-safe-manager-daily-script-v1
     scanner-safe-manager-daily-docs-menu-v1
     scanner-safe-readme-manager-brief-daily-use-v1
+
+---
+
+## ChatGPT Plus onboarding status
+
+Status version: scanner-safe-chatgpt-start-links-v1
+
+The project now has a dedicated onboarding file for a new ChatGPT Plus chat, a new device, or project recovery:
+
+    docs/CHATGPT_PLUS_PROJECT_START.md
+
+Purpose:
+
+    help a fresh ChatGPT Plus chat understand the project without old conversation memory;
+    show which files to read first;
+    show safe startup commands;
+    preserve analytical-only safety;
+    prevent accidental live trading or real Binance orders.
+
+Normal daily development mode is unchanged.
+
+Normal daily commands remain:
+
+    ./manager_daily.sh
+    ./safe_status_release.sh --check-only
+
+The onboarding file is not a trading module.
+It does not enable live trading.
+It does not create orders.
+It does not use Binance private API.
+It does not send Telegram messages.
+
+Related stable tags:
+
+    scanner-safe-chatgpt-project-start-v1
+    scanner-safe-chatgpt-start-links-v1
+    scanner-safe-ai-pair-discovery-roadmap-v1

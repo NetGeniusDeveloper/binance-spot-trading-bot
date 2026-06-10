@@ -44,6 +44,7 @@ README.md
 CRON_SETUP.md
 SAFE_RELEASES.md
 PROJECT_STATUS.md
+docs/CHATGPT_PLUS_PROJECT_START.md
 ```
 
 Purpose:
@@ -52,6 +53,7 @@ Purpose:
 - `CRON_SETUP.md` — safe cron setup instructions.
 - `SAFE_RELEASES.md` — stable releases, tags, and rollback map.
 - `PROJECT_STATUS.md` — short current project status summary.
+- `docs/CHATGPT_PLUS_PROJECT_START.md` — файл только для нового ChatGPT Plus чата, нового устройства или восстановления проекта. Обычная ежедневная разработка остаётся через `manager_daily.sh` и `safe_status_release.sh --check-only`.
 
 Current stable map tag:
 
