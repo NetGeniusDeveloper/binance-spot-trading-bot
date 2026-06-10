@@ -26,7 +26,7 @@ It must not:
 
 Current stable tag:
 
-scanner-safe-risk-filter-scenarios-json-v1
+scanner-safe-risk-filter-more-scenarios-v1
 scanner-safe-status-release-tool-v1
 ```
 
