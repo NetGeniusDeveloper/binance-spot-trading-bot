@@ -628,6 +628,70 @@ def manual_summary_count(summary: Dict[str, Any], key: str) -> int:
         return 0
 
 
+
+
+def load_manager_brief_summary() -> Dict[str, Any]:
+    path = Path("reports/manager_brief_report.json")
+
+    if not path.exists():
+        return {
+            "available": False,
+            "path": str(path),
+            "cards_count": 0,
+            "summary": "Краткий отчёт менеджера ещё не создан.",
+            "brief_items": [],
+            "safe_to_continue": False,
+            "note_ru": "Сначала нужно сформировать reports/manager_brief_report.json.",
+        }
+
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception as ex:
+        return {
+            "available": False,
+            "path": str(path),
+            "cards_count": 0,
+            "summary": f"Не удалось прочитать краткий отчёт менеджера: {ex}",
+            "brief_items": [],
+            "safe_to_continue": False,
+            "note_ru": "Dashboard продолжает оставаться аналитическим, но краткая сводка недоступна.",
+        }
+
+    items = as_list(payload.get("brief_items"))
+
+    return {
+        "available": True,
+        "path": str(path),
+        "cards_count": payload.get("cards_count", len(items)),
+        "summary": payload.get("summary"),
+        "brief_items": items,
+        "safe_to_continue": payload.get("safe_to_continue"),
+        "all_current_pairs_blocked": payload.get("all_current_pairs_blocked"),
+        "note_ru": payload.get(
+            "disclaimer_ru",
+            "Краткий отчёт предназначен только для ручного анализа. Он не является разрешением на сделку.",
+        ),
+    }
+
+
+def manager_brief_item_line(item: Dict[str, Any], index: int) -> List[str]:
+    lines: List[str] = []
+
+    lines.append(f"{index}. {item.get('pair')} — {item.get('safe_decision_ru')}")
+    lines.append(f"   Риск: {item.get('risk_level')}")
+    lines.append(
+        "   Оценки: "
+        f"итоговая={item.get('final_score')}, "
+        f"рынок={item.get('market_score')}, "
+        f"Telegram/соцсигнал={item.get('telegram_score')}"
+    )
+    lines.append(f"   Причина: {item.get('manager_reason')}")
+    lines.append(f"   Что ждать: {item.get('wait_for_short')}")
+    lines.append(f"   Следующий шаг: {item.get('recommended_next_step')}")
+
+    return lines
+
+
 def build_text_report(payload: Dict[str, Any]) -> str:
     dashboard = as_dict(payload.get("dashboard"))
     lines: List[str] = []
@@ -745,6 +809,29 @@ def build_text_report(payload: Dict[str, Any]) -> str:
     lines.append(f"Watchlist count: {dashboard.get('watchlist_count')}")
     lines.append(f"Watchlist statuses: {dashboard.get('watchlist_statuses')}")
     lines.append(f"Watchlist decisions: {dashboard.get('watchlist_decisions')}")
+    lines.append("")
+
+    manager_brief = load_manager_brief_summary()
+    manager_items = as_list(manager_brief.get("brief_items"))
+
+    lines.append("КРАТКИЙ ОТЧЁТ ДЛЯ МЕНЕДЖЕРА")
+    lines.append("===========================")
+    lines.append(f"Отчёт доступен: {format_bool(manager_brief.get('available'))}")
+    lines.append(f"Всего карточек: {manager_brief.get('cards_count')}")
+    lines.append(f"Итог: {manager_brief.get('summary')}")
+    lines.append("")
+
+    if manager_items:
+        for index, raw_item in enumerate(manager_items[:5], 1):
+            item = as_dict(raw_item)
+            for line in manager_brief_item_line(item, index):
+                lines.append(line)
+            lines.append("")
+    else:
+        lines.append("Нет пар для краткого отчёта менеджера.")
+        lines.append("")
+
+    lines.append(f"Пояснение: {manager_brief.get('note_ru')}")
     lines.append("")
 
     manual_cards = load_manual_review_cards_summary()
@@ -872,6 +959,17 @@ def print_summary(payload: Dict[str, Any], json_path: Path, txt_path: Path) -> N
         manual_summary_count(safe_decision_summary, "WATCH_ONLY"),
         "только_ручная_проверка=",
         manual_summary_count(safe_decision_summary, "MANUAL_REVIEW_ONLY"),
+    )
+
+    manager_brief = load_manager_brief_summary()
+    print(
+        "Краткий отчёт менеджера:",
+        "доступен=",
+        manager_brief.get("available"),
+        "карточек=",
+        manager_brief.get("cards_count"),
+        "итог=",
+        manager_brief.get("summary"),
     )
 
     closest_items = as_list(cockpit.get("closest_to_unlock"))
