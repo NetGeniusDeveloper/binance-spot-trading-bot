@@ -2330,3 +2330,55 @@ Commands:
 git tag -a scanner-safe-project-status-manager-brief-report-v1 -m "Stable project status after scanner-safe-manager-brief-report-v1"
 git push origin scanner-safe-project-status-manager-brief-report-v1
 
+---
+
+### scanner-safe-dashboard-manager-brief-inline-v1
+
+Purpose:
+
+Add manager brief inline to quick dashboard
+
+Release mode:
+
+Created through safe_status_release.sh --with-docs.
+
+What was changed:
+
+- quick_safe_dashboard.py
+
+Safety result:
+
+Gate status: safe_manual_review
+Safety gate OK: True
+Review required: True
+Telegram message sent: False
+Orders enabled: False
+Trading enabled: False
+Binance API used: False
+Binance orders created: False
+
+Validation:
+
+1. cd /root/binance-spot-trading-bot
+2. source .venv/bin/activate
+3. ./safe_status_release.sh --check-only
+
+Stable point:
+
+tag: scanner-safe-dashboard-manager-brief-inline-v1
+commit: 4f66f1a
+branch: main
+
+---
+
+## Recommended next stable status tag
+
+After committing this documentation status update, create a new tag:
+
+scanner-safe-project-status-dashboard-manager-brief-inline-v1
+
+Commands:
+
+git tag -a scanner-safe-project-status-dashboard-manager-brief-inline-v1 -m "Stable project status after scanner-safe-dashboard-manager-brief-inline-v1"
+git push origin scanner-safe-project-status-dashboard-manager-brief-inline-v1
+

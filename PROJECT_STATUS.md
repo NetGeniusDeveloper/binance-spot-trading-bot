@@ -26,7 +26,7 @@ It must not:
 
 Current stable tag:
 
-scanner-safe-manager-brief-report-v1
+scanner-safe-dashboard-manager-brief-inline-v1
 scanner-safe-status-release-tool-v1
 ```
 
