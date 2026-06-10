@@ -43,6 +43,8 @@ QUICK_DASHBOARD_TXT="reports/quick_safe_dashboard.txt"
 QUICK_DASHBOARD_JSON="reports/quick_safe_dashboard.json"
 MANUAL_REVIEW_CARDS_TXT="reports/manual_review_cards.txt"
 MANUAL_REVIEW_CARDS_JSON="reports/manual_review_cards.json"
+MANAGER_BRIEF_TXT="reports/manager_brief_report.txt"
+MANAGER_BRIEF_JSON="reports/manager_brief_report.json"
 
 echo "======================================"
 echo "DAILY SCANNER AGENT SAFE RUN"
@@ -605,6 +607,44 @@ fi
 
 echo
 echo "======================================"
+echo "8D. MANAGER BRIEF REPORT"
+echo "======================================"
+python manager_brief_report.py || echo "[WARN] Manager brief report failed"
+
+if [ -f "${MANAGER_BRIEF_TXT}" ]; then
+  cat "${MANAGER_BRIEF_TXT}"
+else
+  echo "[WARN] Missing manager brief TXT: ${MANAGER_BRIEF_TXT}"
+fi
+
+echo
+echo "Manager brief JSON: ${MANAGER_BRIEF_JSON}"
+if [ -f "${MANAGER_BRIEF_JSON}" ]; then
+  python - <<'PYBRIEF'
+import json
+from pathlib import Path
+
+path = Path("reports/manager_brief_report.json")
+
+try:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+except Exception as ex:
+    print("[WARN] Cannot read manager brief JSON:", ex)
+    raise SystemExit
+
+print("Manager brief safe to continue:", payload.get("safe_to_continue"))
+print("Manager brief cards count:", payload.get("cards_count"))
+print("Manager brief all blocked:", payload.get("all_current_pairs_blocked"))
+print("Manager brief summary:", payload.get("summary"))
+print("Manager brief blockers:", ", ".join(payload.get("blockers", [])) or "none")
+print("Manager brief warnings:", ", ".join(payload.get("warnings", [])) or "none")
+PYBRIEF
+else
+  echo "[WARN] Missing manager brief JSON: ${MANAGER_BRIEF_JSON}"
+fi
+
+echo
+echo "======================================"
 echo "9. SAFETY RESULT"
 echo "======================================"
 echo "[OK] This daily runner did not create orders"
@@ -618,6 +658,7 @@ echo "[OK] Risk filter backtest was printed for manual review"
 echo "[OK] Scenario matrix report was printed for manual review"
 echo "[OK] Quick safe dashboard was printed for manual review"
 echo "[OK] Manual review cards were printed for manual review"
+echo "[OK] Manager brief report was printed for manual review"
 echo "[OK] Telegram sending still depends on safety flags"
 
 echo

@@ -158,7 +158,8 @@ python -m py_compile \
   scanner_agent_risk_filter_backtest.py \
   scanner_agent_scenario_matrix_report.py \
   quick_safe_dashboard.py \
-  manual_review_cards.py
+  manual_review_cards.py \
+  manager_brief_report.py
 
 bash -n run_daily_scanner_agent_safe.sh
 bash -n run_daily_scanner_agent_cron_safe.sh
@@ -505,6 +506,70 @@ PYCARDS
 
 echo
 echo "======================================"
+echo "6E. MANAGER BRIEF REPORT CHECK"
+echo "======================================"
+python manager_brief_report.py
+
+python - <<'PYBRIEF'
+import json
+from pathlib import Path
+
+path = Path("reports/manager_brief_report.json")
+
+if not path.exists():
+    raise SystemExit("[ERROR] Missing reports/manager_brief_report.json")
+
+payload = json.loads(path.read_text(encoding="utf-8"))
+
+print("Manager brief safe to continue:", payload.get("safe_to_continue"))
+print("Manager brief cards count:", payload.get("cards_count"))
+print("Manager brief all blocked:", payload.get("all_current_pairs_blocked"))
+print("Manager brief summary:", payload.get("summary"))
+
+if payload.get("safe_to_continue") is not True:
+    raise SystemExit("[ERROR] Manager brief report is not safe to continue")
+
+for key in [
+    "analytical_only",
+]:
+    if payload.get(key) is not True:
+        raise SystemExit(f"[ERROR] Manager brief expected True flag failed: {key}")
+
+for key in [
+    "orders_enabled",
+    "order_execution_allowed",
+    "trading_enabled",
+    "telegram_sending",
+    "binance_private_api_used",
+]:
+    if payload.get(key) is not False:
+        raise SystemExit(f"[ERROR] Manager brief unsafe flag: {key}")
+
+items = payload.get("brief_items", [])
+
+if not isinstance(items, list):
+    raise SystemExit("[ERROR] Manager brief items must be a list")
+
+for item in items:
+    if not isinstance(item, dict):
+        raise SystemExit("[ERROR] Manager brief item is not a dict")
+
+    if item.get("forbidden_action") != "NO_ORDERS_NO_LIVE_TRADING_NO_AUTO_TELEGRAM":
+        raise SystemExit("[ERROR] Manager brief forbidden action is unsafe or missing")
+
+    if item.get("safe_decision") not in {"DO_NOT_ENTER", "WATCH_ONLY", "MANUAL_REVIEW_ONLY"}:
+        raise SystemExit("[ERROR] Manager brief safe decision is unexpected")
+
+blockers = payload.get("blockers", [])
+
+if blockers:
+    raise SystemExit("[ERROR] Manager brief blockers are present: " + ", ".join(str(item) for item in blockers))
+
+print("[OK] Manager brief report allows release")
+PYBRIEF
+
+echo
+echo "======================================"
 echo "7. REPORT SNAPSHOT"
 echo "======================================"
 
@@ -534,6 +599,10 @@ cat reports/quick_safe_dashboard.txt
 echo
 echo "--- manual_review_cards.txt ---"
 cat reports/manual_review_cards.txt
+
+echo
+echo "--- manager_brief_report.txt ---"
+cat reports/manager_brief_report.txt
 
 if [ "${CHECK_ONLY}" = "true" ]; then
   echo
