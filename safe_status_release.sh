@@ -154,7 +154,8 @@ python -m py_compile \
   config.py \
   credentials.py \
   health_check.py \
-  scanner_agent_safety_gate_report.py
+  scanner_agent_safety_gate_report.py \
+  scanner_agent_risk_filter_backtest.py
 
 bash -n run_daily_scanner_agent_safe.sh
 bash -n run_daily_scanner_agent_cron_safe.sh
@@ -261,7 +262,65 @@ PY
 
 echo
 echo "======================================"
-echo "6. REPORT SNAPSHOT"
+echo "6. RISK FILTER BACKTEST CHECK"
+echo "======================================"
+python scanner_agent_risk_filter_backtest.py
+
+python - <<'PYRFBT'
+import json
+from pathlib import Path
+
+path = Path("reports/scanner_agent_risk_filter_backtest.json")
+
+if not path.exists():
+    raise SystemExit("[ERROR] Missing reports/scanner_agent_risk_filter_backtest.json")
+
+payload = json.loads(path.read_text(encoding="utf-8"))
+
+checks = {
+    "analytical_only": payload.get("analytical_only"),
+    "orders_enabled": payload.get("orders_enabled"),
+    "order_execution_allowed": payload.get("order_execution_allowed"),
+    "trading_enabled": payload.get("trading_enabled"),
+    "telegram_sending": payload.get("telegram_sending"),
+    "safe_to_continue": payload.get("safe_to_continue"),
+}
+
+print("Risk filter analytical_only:", checks["analytical_only"])
+print("Risk filter orders_enabled:", checks["orders_enabled"])
+print("Risk filter order_execution_allowed:", checks["order_execution_allowed"])
+print("Risk filter trading_enabled:", checks["trading_enabled"])
+print("Risk filter telegram_sending:", checks["telegram_sending"])
+print("Risk filter safe_to_continue:", checks["safe_to_continue"])
+print("Risk filter summary by bucket:", payload.get("summary_by_bucket"))
+print("Risk filter gap summary:", payload.get("gap_summary"))
+
+if checks["analytical_only"] is not True:
+    raise SystemExit("[ERROR] Risk filter backtest analytical_only must be True")
+
+for key in [
+    "orders_enabled",
+    "order_execution_allowed",
+    "trading_enabled",
+    "telegram_sending",
+]:
+    if checks[key] is not False:
+        raise SystemExit(f"[ERROR] Risk filter backtest unsafe flag: {key}")
+
+if checks["safe_to_continue"] is not True:
+    raise SystemExit("[ERROR] Risk filter backtest safe_to_continue must be True")
+
+blockers = payload.get("blockers", [])
+
+if blockers:
+    raise SystemExit("[ERROR] Risk filter backtest blockers are present: " + ", ".join(str(item) for item in blockers))
+
+print("[OK] Risk filter backtest allows release")
+PYRFBT
+
+echo
+echo "======================================"
+echo "7. REPORT SNAPSHOT"
 echo "======================================"
 
 echo "--- scanner_agent_pipeline_summary.txt ---"
@@ -275,10 +334,14 @@ echo
 echo "--- scanner_agent_blocked_risk_report.txt ---"
 cat reports/scanner_agent_blocked_risk_report.txt
 
+echo
+echo "--- scanner_agent_risk_filter_backtest.txt ---"
+cat reports/scanner_agent_risk_filter_backtest.txt
+
 if [ "${CHECK_ONLY}" = "true" ]; then
   echo
   echo "======================================"
-  echo "7. CHECK-ONLY RESULT"
+  echo "8. CHECK-ONLY RESULT"
   echo "======================================"
   git status
   echo
@@ -292,7 +355,7 @@ fi
 
 echo
 echo "======================================"
-echo "7. GIT COMMIT / PUSH / TAG"
+echo "8. GIT COMMIT / PUSH / TAG"
 echo "======================================"
 
 SHORT_STATUS="$(git status --short)"
@@ -324,7 +387,7 @@ git push origin "${TAG_NAME}"
 if [ "${WITH_DOCS}" = "true" ]; then
   echo
   echo "======================================"
-  echo "8. AUTO DOCUMENTATION UPDATE"
+  echo "9. AUTO DOCUMENTATION UPDATE"
   echo "======================================"
   echo "Documentation tag: ${DOC_TAG_NAME}"
 
@@ -478,7 +541,7 @@ fi
 
 echo
 echo "======================================"
-echo "9. FINAL STATE"
+echo "10. FINAL STATE"
 echo "======================================"
 git status
 git log --oneline -5
