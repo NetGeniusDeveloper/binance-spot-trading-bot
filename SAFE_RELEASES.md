@@ -1802,3 +1802,56 @@ Commands:
 git tag -a scanner-safe-project-status-risk-filter-more-scenarios-v1 -m "Stable project status after scanner-safe-risk-filter-more-scenarios-v1"
 git push origin scanner-safe-project-status-risk-filter-more-scenarios-v1
 
+---
+
+### scanner-safe-scenario-matrix-report-v1
+
+Purpose:
+
+Add scenario matrix report
+
+Release mode:
+
+Created through safe_status_release.sh --with-docs.
+
+What was changed:
+
+- safe_status_release.sh
+- scanner_agent_scenario_matrix_report.py
+
+Safety result:
+
+Gate status: safe_manual_review
+Safety gate OK: True
+Review required: True
+Telegram message sent: False
+Orders enabled: False
+Trading enabled: False
+Binance API used: False
+Binance orders created: False
+
+Validation:
+
+1. cd /root/binance-spot-trading-bot
+2. source .venv/bin/activate
+3. ./safe_status_release.sh --check-only
+
+Stable point:
+
+tag: scanner-safe-scenario-matrix-report-v1
+commit: 8b24510
+branch: main
+
+---
+
+## Recommended next stable status tag
+
+After committing this documentation status update, create a new tag:
+
+scanner-safe-project-status-scenario-matrix-report-v1
+
+Commands:
+
+git tag -a scanner-safe-project-status-scenario-matrix-report-v1 -m "Stable project status after scanner-safe-scenario-matrix-report-v1"
+git push origin scanner-safe-project-status-scenario-matrix-report-v1
+
