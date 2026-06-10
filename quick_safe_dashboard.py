@@ -178,14 +178,34 @@ def extract_closest_to_unlock(risk_filter: Dict[str, Any], limit: int = 5) -> Li
         if not item:
             continue
 
+        gap = as_dict(item.get("gap"))
+
+        final_score_gap = first_existing(
+            item,
+            ["final_score_gap", "unlock_score_gap"],
+            gap.get("final_score_gap"),
+        )
+        market_score_gap = first_existing(
+            item,
+            ["market_score_gap"],
+            gap.get("market_score_gap"),
+        )
+        telegram_score_gap = first_existing(
+            item,
+            ["telegram_score_gap"],
+            gap.get("telegram_score_gap"),
+        )
+
         items.append(
             {
                 "pair": format_pair(item),
-                "bucket": item.get("bucket"),
-                "final_score_gap": item.get("final_score_gap"),
-                "market_score_gap": item.get("market_score_gap"),
-                "telegram_score_gap": item.get("telegram_score_gap"),
+                "bucket": first_existing(item, ["bucket", "backtest_bucket"]),
+                "final_score_gap": final_score_gap,
+                "market_score_gap": market_score_gap,
+                "telegram_score_gap": telegram_score_gap,
                 "risk_flags": short_risk_flags(item),
+                "risk_level": item.get("risk_level"),
+                "recommended_next_step": item.get("recommended_next_step"),
             }
         )
 
