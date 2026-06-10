@@ -2172,3 +2172,55 @@ Commands:
 git tag -a scanner-safe-project-status-manual-review-cards-pipeline-v1 -m "Stable project status after scanner-safe-manual-review-cards-pipeline-v1"
 git push origin scanner-safe-project-status-manual-review-cards-pipeline-v1
 
+---
+
+### scanner-safe-dashboard-manual-review-summary-v1
+
+Purpose:
+
+Add Russian manual review summary to quick dashboard
+
+Release mode:
+
+Created through safe_status_release.sh --with-docs.
+
+What was changed:
+
+- quick_safe_dashboard.py
+
+Safety result:
+
+Gate status: safe_manual_review
+Safety gate OK: True
+Review required: True
+Telegram message sent: False
+Orders enabled: False
+Trading enabled: False
+Binance API used: False
+Binance orders created: False
+
+Validation:
+
+1. cd /root/binance-spot-trading-bot
+2. source .venv/bin/activate
+3. ./safe_status_release.sh --check-only
+
+Stable point:
+
+tag: scanner-safe-dashboard-manual-review-summary-v1
+commit: 602614c
+branch: main
+
+---
+
+## Recommended next stable status tag
+
+After committing this documentation status update, create a new tag:
+
+scanner-safe-project-status-dashboard-manual-review-summary-v1
+
+Commands:
+
+git tag -a scanner-safe-project-status-dashboard-manual-review-summary-v1 -m "Stable project status after scanner-safe-dashboard-manual-review-summary-v1"
+git push origin scanner-safe-project-status-dashboard-manual-review-summary-v1
+
