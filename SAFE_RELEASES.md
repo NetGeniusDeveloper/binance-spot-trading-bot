@@ -2067,3 +2067,55 @@ Commands:
 git tag -a scanner-safe-project-status-project-status-decision-cockpit-gap-fields-fix-v1 -m "Stable project status after scanner-safe-project-status-decision-cockpit-gap-fields-fix-v1"
 git push origin scanner-safe-project-status-project-status-decision-cockpit-gap-fields-fix-v1
 
+---
+
+### scanner-safe-manual-review-cards-v1
+
+Purpose:
+
+Add manual review cards report
+
+Release mode:
+
+Created through safe_status_release.sh --with-docs.
+
+What was changed:
+
+- manual_review_cards.py
+
+Safety result:
+
+Gate status: safe_manual_review
+Safety gate OK: True
+Review required: True
+Telegram message sent: False
+Orders enabled: False
+Trading enabled: False
+Binance API used: False
+Binance orders created: False
+
+Validation:
+
+1. cd /root/binance-spot-trading-bot
+2. source .venv/bin/activate
+3. ./safe_status_release.sh --check-only
+
+Stable point:
+
+tag: scanner-safe-manual-review-cards-v1
+commit: 18c775c
+branch: main
+
+---
+
+## Recommended next stable status tag
+
+After committing this documentation status update, create a new tag:
+
+scanner-safe-project-status-manual-review-cards-v1
+
+Commands:
+
+git tag -a scanner-safe-project-status-manual-review-cards-v1 -m "Stable project status after scanner-safe-manual-review-cards-v1"
+git push origin scanner-safe-project-status-manual-review-cards-v1
+
