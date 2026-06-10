@@ -294,6 +294,11 @@ print("Risk filter telegram_sending:", checks["telegram_sending"])
 print("Risk filter safe_to_continue:", checks["safe_to_continue"])
 print("Risk filter summary by bucket:", payload.get("summary_by_bucket"))
 print("Risk filter gap summary:", payload.get("gap_summary"))
+print("Risk filter synthetic scenarios OK:", payload.get("synthetic_scenarios_ok"))
+print("Risk filter synthetic scenario failed count:", payload.get("synthetic_scenario_failed_count"))
+
+if payload.get("synthetic_scenarios_ok") is not True:
+    raise SystemExit("[ERROR] Risk filter synthetic scenarios failed")
 
 if checks["analytical_only"] is not True:
     raise SystemExit("[ERROR] Risk filter backtest analytical_only must be True")
