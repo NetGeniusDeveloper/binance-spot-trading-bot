@@ -1908,3 +1908,57 @@ Commands:
 git tag -a scanner-safe-project-status-scenario-matrix-daily-runner-v1 -m "Stable project status after scanner-safe-scenario-matrix-daily-runner-v1"
 git push origin scanner-safe-project-status-scenario-matrix-daily-runner-v1
 
+---
+
+### scanner-safe-quick-dashboard-v1
+
+Purpose:
+
+Add quick safe dashboard
+
+Release mode:
+
+Created through safe_status_release.sh --with-docs.
+
+What was changed:
+
+- quick_safe_dashboard.py
+- run_daily_scanner_agent_safe.sh
+- safe_status_release.sh
+
+Safety result:
+
+Gate status: safe_manual_review
+Safety gate OK: True
+Review required: True
+Telegram message sent: False
+Orders enabled: False
+Trading enabled: False
+Binance API used: False
+Binance orders created: False
+
+Validation:
+
+1. cd /root/binance-spot-trading-bot
+2. source .venv/bin/activate
+3. ./safe_status_release.sh --check-only
+
+Stable point:
+
+tag: scanner-safe-quick-dashboard-v1
+commit: 429802e
+branch: main
+
+---
+
+## Recommended next stable status tag
+
+After committing this documentation status update, create a new tag:
+
+scanner-safe-project-status-quick-dashboard-v1
+
+Commands:
+
+git tag -a scanner-safe-project-status-quick-dashboard-v1 -m "Stable project status after scanner-safe-quick-dashboard-v1"
+git push origin scanner-safe-project-status-quick-dashboard-v1
+
